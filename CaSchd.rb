@@ -273,7 +273,7 @@ class CaSchd
     end   
     
     def schd_start        
-        acv=false        
+        acv={}     
         fle='caschd.flg'
         open(fle,"w") { | fl |
             fl.puts getNow
@@ -313,10 +313,10 @@ class CaSchd
                             res=res && (ex['cdwn']!=-1)
                         }
                         begin
-                            if (acv)
+                            if (acv[ev.test['name']])
                                 fcv.write(fbf+"\n")
                             else
-                                acv=true
+                                acv[ev.test['name']]=true
                             end
                             fcv.close
                         rescue
