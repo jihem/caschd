@@ -70,8 +70,7 @@ class CaTest
         cnx.finish
         return true
     end
-    
-    
+     
     def sppp(prm)
         dly,sr1,prt,msg,frm,dst,sr2,lgn,pss=prm
         res=false

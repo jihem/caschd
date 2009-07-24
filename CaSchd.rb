@@ -5,6 +5,7 @@ require "CaJson"
 require "CaTest"
 
 class CaEvent
+    
     attr_accessor :evnt
     attr_accessor :evok
     attr_reader   :time
@@ -19,6 +20,7 @@ class CaEvent
 end
 
 class CaSchd
+    
     attr_reader :list
     attr_reader :json
     attr_reader :page
@@ -35,11 +37,13 @@ class CaSchd
         @page={}
         @page['*']='*'
         @page['%']='_'+' _'*39
-        @logh=iniLogh #[]
+        @logh=iniLogh
         @htbt={}
+        hdte=getDate
         hnow=getNow
         @wday=hnow[0..0]
         @json.data['test'].each { | ts |
+            ts['file']=ts['name'].gsub(/\W/,'_')+'_'+hdte+".csv"
             ts['exec'].each { | ex |
                 ex['cdwn']=ex['redo']
                 ex['ccrt']=0
@@ -138,10 +142,8 @@ class CaSchd
                 }
             end
             pos << (buf.length-1)
-            #print "--> #{sze}\n"
             pos.each_index { | idx |
                 if (idx<(pos.length-2))
-                    #print "#{idx} #{pos[idx]} - #{buf[pos[idx]+1..pos[idx+1]-1]}\n"
                     res << buf[pos[idx]+1..pos[idx+1]-1]
                 end
             }
@@ -272,69 +274,95 @@ class CaSchd
     
     def schd_start        
         fle='caschd.flg'
-        #begin
-            open(fle,"w") { | fl |
-                fl.puts getNow
-                fl.close
-            }  
-            while File.file?(fle) 
-                now=getNow
-                nme={}
-                @list.sort_by { | ev | ev.evnt }   
-                @list.each { | ev |
-                    flg=(ev.evnt[0..0]=='0') && (now[1..4]>=ev.evnt[1..4])
-                    fok=(ev.evok[0..0]=='0') && (now[1..4]>=ev.evok[1..4])
-                    res=true
-                    if flg || (nme[ev.test['name']]==nil)
-                        # STATS
-                        
-                        #
+        open(fle,"w") { | fl |
+            fl.puts getNow
+            fl.close
+        }
+        cpt=3
+        while File.file?(fle)
+            now=getNow
+            nme={}
+            @list.sort_by { | ev | ev.evnt }   
+            @list.each { | ev |
+                flg=(ev.evnt[0..0]=='0') && (now[1..4]>=ev.evnt[1..4])
+                fok=(ev.evok[0..0]=='0') && (now[1..4]>=ev.evok[1..4])
+                res=true
+                if flg || (nme[ev.test['name']]==nil)
+                    if (cpt<=1)
+                        begin
+                            if File.file?(ev.test['file'])
+                                fcv=open(ev.test['file'],'a')
+                            else
+                                fcv=open(ev.test['file'],'w')
+                                fbf='timestamp'
+                                ev.test['exec'].each { | ex |
+                                    fbf+=';'+ex['name']+'_'+ex['args'][1].to_s.gsub(/\W/,'_')
+                                }
+                                fcv.write(fbf+"\n")
+                            end
+                        rescue
+                            #
+                        end
+                        fbf=getDate
+                        ev.test['exec'].each { | ex |
+                            fbf+=';'+ (ex['cdwn']!=-1 ? ("%01.1f" %ex['ccrt']) : '-1')
+                            if flg && ( (ex['cdwn']==-1) || (! ex['atom']) || (ex['atom'] && fok) )
+                                exec(ex)
+                            end
+                            res=res && (ex['cdwn']!=-1)
+                        }
+                        begin
+                            fcv.write(fbf+"\n")
+                            fcv.close
+                        rescue
+                            #
+                        end
+                    else
                         ev.test['exec'].each { | ex |
                             if flg && ( (ex['cdwn']==-1) || (! ex['atom']) || (ex['atom'] && fok) )
                                 exec(ex)
                             end
                             res=res && (ex['cdwn']!=-1)
                         }
-                        nme[ev.test['name']]=res
-                    else
-                        res=nme[ev.test['name']]
                     end
-                    if (fok)
-                        ev.evok=getNext(ev.time)
+                    nme[ev.test['name']]=res
+                else
+                    res=nme[ev.test['name']]
+                end
+                if (fok)
+                    ev.evok=getNext(ev.time)
+                end
+                if res
+                    if flg
+                        ev.evnt=ev.evok
                     end
-                    if res
-                        if flg
-                            ev.evnt=ev.evok
+                else
+                    if flg || (ev.evnt==ev.evok)
+                        tme=ev.time.clone
+                        if tme['days'].include?(now[0..0])
+                            tme['wait']=1 # redo delay
+                            ev.evnt=getNext(tme)
+                        else
+                            ev.evnt='1'+tme['from']
                         end
+                    end
+                end
+            }
+            if @wday!=now[0..0]
+                @wday=now[0..0]
+                @list.each { | ev |
+                    if ev.time['days'].include?(@wday) && (now[1..4] <= ev.time['to'])
+                        ev.evnt='0'+ev.evnt[1..4]
+                        ev.evok='0'+ev.evok[1..4]
                     else
-                        if flg || (ev.evnt==ev.evok)
-                            tme=ev.time.clone
-                            if tme['days'].include?(now[0..0])
-                                tme['wait']=1 # redo delay
-                                ev.evnt=getNext(tme)
-                            else
-                                ev.evnt='1'+tme['from']
-                            end
-                        end
+                        ev.evnt='1'+ev.time['from']
+                        ev.evok='1'+ev.time['from']
                     end
                 }
-                if @wday!=now[0..0]
-                    @wday=now[0..0]
-                    @list.each { | ev |
-                        if ev.time['days'].include?(@wday) && (now[1..4] <= ev.time['to'])
-                            ev.evnt='0'+ev.evnt[1..4]
-                            ev.evok='0'+ev.evok[1..4]
-                        else
-                            ev.evnt='1'+ev.time['from']
-                            ev.evok='1'+ev.time['from']
-                        end
-                    }
-                end
-                sleep 20
             end
-        #rescue
-            #
-        #end
+            cpt=cpt<=1 ? 3 : cpt-1
+            sleep 20
+        end
     end
     
     def start
@@ -351,14 +379,12 @@ class CaSchd
             pge={}
             pgi={}
             pgo={}
-            #print "-->#{now}\n"
             
             lst.each { | nm,vl |
                 lst[nm]=[vl[0],-2, -2]
                 pge[nm]='<table>'
             }
             @list.each { | ev |
-                #print 'D:',ev.test['name'],"\n"
                 srv=ev.time['days'].include?(now[0..0]) && (ev.time['from'] <=now[1..4]) && (now[1..4] <= ev.time['to'])
                 clr=srv ? 'yellow' : 'black'
                 pge[ev.test['name']]+='<tr><td bgcolor="'+clr+'" width="20"></td><td>'+ev.evnt[1..2]+':'+ev.evnt[3..4]+' ('+ev.evok[1..2]+':'+ev.evok[3..4]+') '+ev.time['days']+' ('+ev.time['from'][0..1]+':'+ev.time['from'][2..3]+'-'+ev.time['to'][0..1]+':'+ev.time['to'][2..3]+")</td></tr>\n"
@@ -412,11 +438,9 @@ class CaSchd
             idx.each { | nm |
                 vl=lst[nm]
                 if vl[0]!=(vl[1]==-1)
-                    if @pool.keys.include?(nm) && (nm[0..0]!='!')
-                        #addLogh("** : #{nm} (pool delete)")    
+                    if @pool.keys.include?(nm) && (nm[0..0]!='!')  
                         @pool.delete(nm)
                     else
-                        #addLogh("** : #{nm} (pool add)")
                         if nm[0..0]!='!' 
                             @pool[nm]={ 'wait'=>7, 'list'=>[] }
                         else 
@@ -468,8 +492,7 @@ class CaSchd
                                             end                                        
                                         end
                                         prm[3]=msg
-                                    end
-                                    #addLogh("** : #{sbj} (#{us['exec']['name']})")    
+                                    end  
                                     @pool[nm]['list']<< { 'user'=>us['name'],'name'=>us['exec']['name'],'subj'=>sbj,'args'=>prm }                        
                                 end
                             end
@@ -492,21 +515,17 @@ class CaSchd
                 pge+="<tr><td bgcolor=\"#{clr}\" width=\"20\"></td><td><a href=\"?page=#{nm}\">#{nm}</a></td></tr>\n" 
                 #
                 if @pool.keys.include?(nm)
-                    #addLogh("** : #{nm} (pool-- #{@pool[nm]['wait']})")
                     @pool[nm]['wait']-=1
                     if @pool[nm]['wait']<=0
                         @pool[nm]['list'].each { | itm |
-                            #addLogh("** : #{nm} (pool exec #{itm['name']})")
                             tst=CaTest.new
                             sbj=itm['subj']
                             prm=itm['args']
                             dly=prm.length>0 ? prm[0] : 10
-                            mly=dly
-                            #addLogh("** : #{nm} (pool dly #{dly})")                            
+                            mly=dly                         
                             res=false
                             snd=Thread.new {
                                 begin
-                                    #addLogh("** : #{nm} (pool thread)") 
                                     case itm['name']
                                     when 'ping'
                                         res=tst.ping(prm)
@@ -520,7 +539,6 @@ class CaSchd
                                 rescue
                                     #
                                 end
-                                #addLogh("** : #{nm} (pool thread end : #{res})") 
                             }
                             while ((dly>0) && !res)
                                 if snd && snd.alive?
@@ -531,7 +549,6 @@ class CaSchd
                                     dly=0    
                                 end
                             end
-                            #addLogh("** : #{nm} (pool wait end : #{res})")
                             snd.kill if snd && snd.alive?
                             if res
                                 addLogh("** : #{sbj} (#{itm['user']} OK #{dly}/#{mly})")
@@ -546,7 +563,6 @@ class CaSchd
             }
             pge+='<tr><td></td><td><a href="?page">*</a></td></tr></table>'
             setPage('*',pge)            
-            
             sleep slp
         end            
     end
@@ -801,7 +817,7 @@ else
             end
             day='1234560'
             day[now[0..0]]='['+now[0..0]+']'
-            res.body = "<html><body><table border=\"1\" width=\"640\"><tr><td width=\"140\"><a href=\"http://wdwave.dnsalias.com\">CaSchd.rb</a><br/>20090718</td><td>#{now[1..2]}:#{now[3..4]} #{day} - #{prm['page']}</br>"+sch.getPage('%')+"</td></tr></table>"
+            res.body = "<html><body><table border=\"1\" width=\"640\"><tr><td width=\"140\"><a href=\"http://wdwave.dnsalias.com\">CaSchd.rb</a><br/>20090724</td><td>#{now[1..2]}:#{now[3..4]} #{day} - #{prm['page']}</br>"+sch.getPage('%')+"</td></tr></table>"
             res.body+="<table border=\"0\" width=\"640\"><tr><td valign=\"top\" width=\"140\">"
             res.body+=sch.getPage('*')+"</td><td  valign=\"top\">"
             if prm['page']=='*'

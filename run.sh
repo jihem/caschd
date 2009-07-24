@@ -1,0 +1,2 @@
+nohup ruby CaSchd.rb &
+

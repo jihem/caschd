@@ -66,16 +66,12 @@ class CaJson
             itm=true
             while (itm)
                 if ! exp.match(/^\]/)
-    #               exp,itm=getValue(exp)
-    #               exp,itm=getValueOrArray(exp)
                     exp,itm=getValueOrArrayOrHash(exp)
                     if itm != nil
                         res << itm
                         exp.lstrip!
                         if exp.match(/^,/)
                             exp=exp[1..exp.length-1]
-    #                       tmp,itm=getValue(exp) 
-    #                       tmp,itm=getValueOrArray(exp)
                             tmp,itm=getValueOrArrayOrHash(exp) 
                             
                             if itm == nil
@@ -99,14 +95,6 @@ class CaJson
         return [exp,res]
     end
     
-    #def getValueOrArray(str)
-    #    exp,res=getValue(str)
-    #    if res==nil
-    #        exp,res=getArray(str)
-    #    end
-    #    return [exp,res]
-    #end
-    
     def getPair(str)
         exp,res=getString(str)
         if res
@@ -114,7 +102,6 @@ class CaJson
             exp.lstrip!
             if exp.match(/^:/)
                 exp=exp[1..exp.length-1]
-    #           exp,res=getValueOrArray(exp)
                 exp,res=getValueOrArrayOrHash(exp)
                 if res!=nil
                     res=[key,res]
