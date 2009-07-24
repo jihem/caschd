@@ -273,12 +273,12 @@ class CaSchd
     end   
     
     def schd_start        
+        acv=false        
         fle='caschd.flg'
         open(fle,"w") { | fl |
             fl.puts getNow
             fl.close
         }
-        cpt=3
         while File.file?(fle)
             now=getNow
             nme={}
@@ -288,13 +288,13 @@ class CaSchd
                 fok=(ev.evok[0..0]=='0') && (now[1..4]>=ev.evok[1..4])
                 res=true
                 if flg || (nme[ev.test['name']]==nil)
-                    if (cpt<=1)
+                    if flg
                         begin
                             if File.file?(ev.test['file'])
                                 fcv=open(ev.test['file'],'a')
                             else
                                 fcv=open(ev.test['file'],'w')
-                                fbf='timestamp'
+                                fbf='date;time'
                                 ev.test['exec'].each { | ex |
                                     fbf+=';'+ex['name']+'_'+ex['args'][1].to_s.gsub(/\W/,'_')
                                 }
@@ -304,6 +304,7 @@ class CaSchd
                             #
                         end
                         fbf=getDate
+                        fbf=fbf[0..7]+';'+fbf[8..11]
                         ev.test['exec'].each { | ex |
                             fbf+=';'+ (ex['cdwn']!=-1 ? ("%01.1f" %ex['ccrt']) : '-1')
                             if flg && ( (ex['cdwn']==-1) || (! ex['atom']) || (ex['atom'] && fok) )
@@ -312,16 +313,17 @@ class CaSchd
                             res=res && (ex['cdwn']!=-1)
                         }
                         begin
-                            fcv.write(fbf+"\n")
+                            if (acv)
+                                fcv.write(fbf+"\n")
+                            else
+                                acv=true
+                            end
                             fcv.close
                         rescue
                             #
                         end
                     else
                         ev.test['exec'].each { | ex |
-                            if flg && ( (ex['cdwn']==-1) || (! ex['atom']) || (ex['atom'] && fok) )
-                                exec(ex)
-                            end
                             res=res && (ex['cdwn']!=-1)
                         }
                     end
@@ -360,7 +362,6 @@ class CaSchd
                     end
                 }
             end
-            cpt=cpt<=1 ? 3 : cpt-1
             sleep 20
         end
     end
