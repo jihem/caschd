@@ -1,6 +1,7 @@
 require 'net/http'
 require 'net/smtp'
 require 'net/pop'
+require 'resolv'
 require 'uri'
 
 class CaTest
@@ -97,6 +98,12 @@ class CaTest
         cnx.finish
         res=smtp(prm) && res
         return res
+    end
+    
+    def rdns(prm)
+        dly,srv,uri,ipl=prm
+        rsl=Resolv::DNS.new({:nameserver=>[srv],})
+        return (' '+ipl+' ').include?(rsl.getaddress(uri).to_s)
     end
 end
 
