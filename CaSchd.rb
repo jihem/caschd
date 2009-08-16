@@ -34,16 +34,18 @@ class CaSchd
         @list=Array.new
         @pool={}
         @mutex=Mutex.new
+        @hdte=getDate
         @page={}
         @page['*']='*'
         @page['%']='_'+' _'*39
+        @page['#*']=''
+        @page['#?']=''
         @logh=iniLogh
         @htbt={}
-        hdte=getDate
         hnow=getNow
         @wday=hnow[0..0]
         @json.data['test'].each { | ts |
-            ts['file']=ts['name'].gsub(/\W/,'_')+'_'+hdte+".csv"
+            ts['file']=ts['name'].gsub(/\W/,'_')+'_'+@hdte+".csv"
             ts['exec'].each { | ex |
                 ex['cdwn']=ex['redo']
                 ex['ccrt']=0
@@ -377,6 +379,12 @@ class CaSchd
             lst[ev.test['name']]=[false, -2, -2]
         }
         idx=lst.keys.sort
+        pgc=@hdte
+        idx.each { | nm |
+            pgc+='#'+nm
+        }
+        setPage('#*',pgc)
+        setPage('#?',@hdte+'#'+('0'*idx.length))
         while thr.status
             now=getNow
             pge={}
@@ -435,11 +443,23 @@ class CaSchd
                 end
                 pge[nm]+='</table>'
                 setPage(nm,pge[nm])
-            } 
-            pge ='<table>'          
+            }
+            pgc=@hdte+'#'
+            pge='<table>'          
             slp=20
             idx.each { | nm |
                 vl=lst[nm]
+                sbj=nm
+                if (vl[1]==-1)
+                    sbj+=" HS!"
+                    pgc+='2'
+                elsif (vl[2]==-1)
+                    sbj+=" OK?"
+                    pgc+='1'
+                else
+                    sbj+=" OK!"
+                    pgc+='0'
+                end                
                 if vl[0]!=(vl[1]==-1)
                     if @pool.keys.include?(nm) && (nm[0..0]!='!')  
                         @pool.delete(nm)
@@ -449,16 +469,16 @@ class CaSchd
                         else 
                             @pool[nm]={ 'wait'=>1, 'list'=>[] }
                         end
-                        sbj=nm
-                        if (vl[1]==-1)
-                            sbj+=" HS!"
-                        else
-                            if (vl[2]==-1)
-                                sbj+=" OK?"                            
-                            else
-                                sbj+=" OK!"
-                            end
-                        end      
+                        #sbj=nm
+                        #if (vl[1]==-1)
+                        #    sbj+=" HS!"
+                        #else
+                        #    if (vl[2]==-1)
+                        #        sbj+=" OK?"
+                        #    else
+                        #        sbj+=" OK!"
+                        #    end
+                        #end      
                         @json.data['user'].each { | us |
                             if (us['doit']) && (us['test'].include?(nm))
                                 res=false
@@ -565,6 +585,7 @@ class CaSchd
                 #
             }
             pge+='<tr><td></td><td><a href="?page">*</a></td></tr></table>'
+            setPage('#?',pgc)
             setPage('*',pge)            
             sleep slp
         end            
@@ -809,19 +830,28 @@ else
             }
         end
         
-        if prm['htbt']
-            if sch.setHtbt(prm['htbt'],prm['pswd'])
-                res.body+="<html><body>#{now}:OK</body></html>"
+        if prm['cnsl']
+            if prm['cnsl']=='*'
+                res.body=sch.getPage('#*')
+                res['Content-Type'] = "text/plain"
             else
-                res.body+="<html><body>#{now}:HS</body></html>"
+                res.body=sch.getPage('#?')
+                res['Content-Type'] = "text/plain"
             end
+        elsif prm['htbt']
+            if sch.setHtbt(prm['htbt'],prm['pswd'])
+                res.body="#{now}:OK"
+            else
+                res.body="#{now}:HS"
+            end
+            res['Content-Type'] = "text/plain"
         else
             if ! sch.getPage(prm['page'])
                 prm['page']='*'
             end
             day='1234560'
             day[now[0..0]]='['+now[0..0]+']'
-            res.body = "<html><body><table border=\"1\" width=\"640\"><tr><td width=\"140\"><a href=\"http://wdwave.dnsalias.com\">CaSchd.rb</a><br/>20090813</td><td>#{now[1..2]}:#{now[3..4]} #{day} - #{prm['page']}</br>"+sch.getPage('%')+"</td></tr></table>"
+            res.body = "<html><body><table border=\"1\" width=\"640\"><tr><td width=\"140\"><a href=\"http://wdwave.dnsalias.com\">CaSchd.rb</a><br/>20090816</td><td>#{now[1..2]}:#{now[3..4]} #{day} - #{prm['page']}</br>"+sch.getPage('%')+"</td></tr></table>"
             res.body+="<table border=\"0\" width=\"640\"><tr><td valign=\"top\" width=\"140\">"
             res.body+=sch.getPage('*')+"</td><td  valign=\"top\">"
             if prm['page']=='*'
@@ -831,8 +861,8 @@ else
             end 
             res.body+="</td></tr></table>"
             res.body+="</body></html>" 
+            res['Content-Type'] = "text/html"
         end    
-        res['Content-Type'] = "text/html"
     }
     
     trap("INT"){ web.shutdown }
