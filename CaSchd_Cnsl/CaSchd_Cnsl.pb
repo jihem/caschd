@@ -42,8 +42,8 @@ Procedure AlertThread(Parameter)
       Ini.b=1
     EndIf
     If Not Ini.b
+      Delay(3000)
       Repeat
-        Delay(120000)
         Err.l=0
         Wrn.l=0
         Tmp.s=HTTPGet(UrlC.s+"/?cnsl=?")
@@ -81,6 +81,7 @@ Procedure AlertThread(Parameter)
         If UrlA.b Or Ini.b
           PlaySound(OggN.l)
         EndIf
+        Delay(120000)
       Until Ini.b
     EndIf
   ForEver
@@ -119,8 +120,8 @@ If InitSound() And InitNetwork() And OpenWindow(0, 0, 0, 300, 30, "CaSchd.rb - C
   Until Event = #PB_Event_CloseWindow 
 EndIf 
 ; IDE Options = PureBasic 4.31 (Windows - x86)
-; CursorPosition = 45
-; FirstLine = 22
+; CursorPosition = 40
+; FirstLine = 40
 ; Folding = -
 ; EnableThread
 ; EnableXP
