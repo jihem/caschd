@@ -36,13 +36,15 @@ Procedure AlertThread(Parameter)
         If Mid(Tmp.s,Ind.l,1)="#"
           Mem.s=Mem.s+"0"
         EndIf
-      Next 
+      Next
+      Ini.b=0 
     Else
       AddSysTrayIcon(1, WindowID(0), IcoB.l)
+      PlaySound(OggN.l)
+      Delay(10000)
       Ini.b=1
     EndIf
     If Not Ini.b
-      Delay(3000)
       Repeat
         Err.l=0
         Wrn.l=0
@@ -78,10 +80,15 @@ Procedure AlertThread(Parameter)
         Else
           Ini.b=1
         EndIf
-        If UrlA.b Or Ini.b
-          PlaySound(OggN.l)
+        If Not Ini.b
+          For Ind.l=1 To 3
+            If UrlA.b 
+              PlaySound(OggN.l)
+              Delay(10000)
+            EndIf
+          Next
+          Delay(90000)
         EndIf
-        Delay(120000)
       Until Ini.b
     EndIf
   ForEver
@@ -90,12 +97,12 @@ EndProcedure
 If InitSound() And InitNetwork() And OpenWindow(0, 0, 0, 300, 30, "CaSchd.rb - Console Externe", #PB_Window_SystemMenu | #PB_Window_ScreenCentered )
   UseOGGSoundDecoder()
   OggN.l=LoadSound(#PB_Any, "CaSchd_Cnsl.ogg")
-  PlaySound(OggN.l)
-  
   TextGadget(0, 10, 10, 280, 20, "http://wdwave.dnsalias.com") 
   AddSysTrayIcon(1, WindowID(0), IcoB.l)
   SysTrayIconToolTip(1, "CaSchd.rb")
   HideWindow(0,1)
+  PlaySound(OggN.l)
+  Delay(3000)
   CreateThread(@AlertThread(),0)
   Repeat
     Event = WaitWindowEvent()
@@ -120,8 +127,8 @@ If InitSound() And InitNetwork() And OpenWindow(0, 0, 0, 300, 30, "CaSchd.rb - C
   Until Event = #PB_Event_CloseWindow 
 EndIf 
 ; IDE Options = PureBasic 4.31 (Windows - x86)
-; CursorPosition = 40
-; FirstLine = 40
+; CursorPosition = 39
+; FirstLine = 26
 ; Folding = -
 ; EnableThread
 ; EnableXP
