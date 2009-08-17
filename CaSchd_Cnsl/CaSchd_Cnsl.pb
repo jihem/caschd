@@ -12,15 +12,53 @@ PreferenceGroup("Global")
 UrlC.s=ReadPreferenceString("url", "")
 ClosePreferences()
 
+; Procedure.s HTTPGet(Url.s)
+;   Res.s=""
+;   If ReceiveHTTPFile(Url.s,"CaSchd_Cnsl.tmp")
+;     If ReadFile(0,"CaSchd_Cnsl.tmp")
+;       If Eof(0)=0
+;         Res.s=ReadString(0) 
+;       EndIf
+;       CloseFile(0)
+;     EndIf 
+;   EndIf
+;   ProcedureReturn Res.s
+; EndProcedure
+
 Procedure.s HTTPGet(Url.s)
+  Eol.s=Chr(13)+Chr(10)
+  Prt.l=Val(GetURLPart(Url.s, #PB_URL_Port))
   Res.s=""
-  If ReceiveHTTPFile(Url.s,"CaSchd_Cnsl.tmp")
-    If ReadFile(0,"CaSchd_Cnsl.tmp")
-      If Eof(0)=0
-        Res.s=ReadString(0) 
+  Tmp.s=""
+  If Not Prt.l
+    Prt.l=80
+  EndIf
+  CId.l=OpenNetworkConnection(GetURLPart(Url.s, #PB_URL_Site), Prt.l)
+  If CId
+    *Buf.l=AllocateMemory(1000)
+    SendNetworkString(CId,"GET /"+GetURLPart(Url.s, #PB_URL_Path)+"?"+GetURLPart(Url.s, #PB_URL_Parameters)+" HTTP/1.0"+Eol.s+Eol.s)
+    Cpt.l=5
+    While Cpt.l And (NetworkClientEvent(CId)<>#PB_NetworkEvent_Data)
+      Delay(1000)
+      Cpt.l=Cpt.l-1
+    Wend
+    Len.l=ReceiveNetworkData(CId,*Buf.l,1000)
+    While Len.l=1000
+      Tmp.s=Tmp.s+PeekS(*Buf.l)
+      Len.l=ReceiveNetworkData(CId,*Buf.l,1000)
+    Wend
+    If Len.l<>-1
+      Tmp.s=Tmp.s+PeekS(*Buf.l)
+      Cpt.l=FindString(UCase(Tmp.s),"CONTENT-TYPE",1)
+      If Cpt.l
+        Cpt.l=FindString(Tmp.s,Eol.s+Eol.s,Cpt.l)
+        If Cpt.l
+          Res.s=Right(Tmp.s,Len(Tmp.s)-Cpt.l-3)
+        EndIf
       EndIf
-      CloseFile(0)
-    EndIf 
+    EndIf    
+    FreeMemory(*Buf)    
+    CloseNetworkConnection(CId)
   EndIf
   ProcedureReturn Res.s
 EndProcedure
@@ -127,8 +165,8 @@ If InitSound() And InitNetwork() And OpenWindow(0, 0, 0, 300, 30, "CaSchd.rb - C
   Until Event = #PB_Event_CloseWindow 
 EndIf 
 ; IDE Options = PureBasic 4.31 (Windows - x86)
-; CursorPosition = 39
-; FirstLine = 26
+; CursorPosition = 1
+; FirstLine = 1
 ; Folding = -
 ; EnableThread
 ; EnableXP
