@@ -5,11 +5,16 @@ Global IcoP.l=LoadImage(3, "CaSchd_P.ico")
 Global OggN.l;
 Global UrlA.b=0;
 Global UrlC.s;
+Global LstT.s;
 Global WinH.b=1;
 
 OpenPreferences("CaSchd_Cnsl.ini")
 PreferenceGroup("Global")
 UrlC.s=ReadPreferenceString("url", "")
+LstT.s=ReadPreferenceString("lst", "")
+If Len(LstT.s)
+  LstT.s="#"+LstT.s+"#"
+EndIf
 ClosePreferences()
 
 ; Procedure.s HTTPGet(Url.s)
@@ -73,11 +78,25 @@ Procedure AlertThread(Parameter)
     Tmp.s=HTTPGet(UrlC.s+"/?cnsl=*")
     If Len(Tmp.s)
       Mem.s=Left(Tmp.s,15)
-      For Ind.l=15 To Len(Tmp.s)
+      Ind.l=15
+      While Ind.l<=Len(Tmp.s)
         If Mid(Tmp.s,Ind.l,1)="#"
-          Mem.s=Mem.s+"0"
+          Pos.l=FindString(Tmp.s,"#",Ind.l+1)-1
+          If Pos.l=-1
+            Pos.l=Len(Tmp.s)
+          EndIf
+          If Len(LstT.s)
+            If FindString(LstT.s,"#"+Mid(Tmp.s,Ind.l+1,Pos.l-Ind.l)+"#",1)
+              Mem.s=Mem.s+"0"
+            Else
+              Mem.s=Mem.s+"-"
+            EndIf
+          Else
+            Mem.s=Mem.s+"0"        
+          EndIf
         EndIf
-      Next
+        Ind.l=Pos.l+1
+      Wend
       Ini.b=0 
     Else
       ChangeSysTrayIcon(1, IcoB.l)
@@ -92,16 +111,20 @@ Procedure AlertThread(Parameter)
         Tmp.s=HTTPGet(UrlC.s+"/?cnsl=?")
         If Left(Tmp.s,15)=Left(Mem.s,15)
           For Ind.l=16 To Len(Tmp.s)
-            If Mid(Tmp.s,Ind.l,1)<>"0"
-              If Mid(Tmp.s,Ind.l,1)<>"1"
-                If Mid(Mem.s,Ind.l,1)<>"2"
-                  Err.l=Ind.l-15
+            If Mid(Mem.s,Ind.l,1)<>"-"
+              If Mid(Tmp.s,Ind.l,1)<>"0"
+                If Mid(Tmp.s,Ind.l,1)<>"1"
+                  If Mid(Mem.s,Ind.l,1)<>"2"
+                    Err.l=Ind.l-15
+                  Else
+                    Wrn.l=Ind.l-15
+                  EndIf
                 Else
                   Wrn.l=Ind.l-15
                 EndIf
-              Else
-                Wrn.l=Ind.l-15
               EndIf
+            Else
+              Tmp.s=Left(Tmp.s,Ind.l-1)+"-"+Right(Tmp.s,Len(Tmp.s)-Ind.l)
             EndIf
           Next
           If Err.l
@@ -116,8 +139,8 @@ Procedure AlertThread(Parameter)
               ChangeSysTrayIcon(1, IcoG.l)
               UrlA.b=0  
             EndIf
-          EndIf      
-          Mem.s=Tmp.s           
+          EndIf
+          Mem.s=Tmp.s
         Else
           Ini.b=1
         EndIf
@@ -167,8 +190,8 @@ If InitSound() And InitNetwork() And OpenWindow(0, 0, 0, 300, 30, "CaSchd.rb - C
   Until Event = #PB_Event_CloseWindow 
 EndIf 
 ; IDE Options = PureBasic 4.31 (Windows - x86)
-; CursorPosition = 152
-; FirstLine = 145
+; CursorPosition = 81
+; FirstLine = 71
 ; Folding = -
 ; EnableThread
 ; EnableXP
