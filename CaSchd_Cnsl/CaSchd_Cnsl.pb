@@ -49,11 +49,14 @@ Procedure.s HTTPGet(Url.s)
     Wend
     If Len.l<>-1
       Tmp.s=Tmp.s+PeekS(*Buf.l)
-      Cpt.l=FindString(UCase(Tmp.s),"CONTENT-TYPE",1)
+      Cpt.l=FindString(Tmp.s,"200 OK"+Eol.s,1)
       If Cpt.l
-        Cpt.l=FindString(Tmp.s,Eol.s+Eol.s,Cpt.l)
+        Cpt.l=FindString(UCase(Tmp.s),"CONTENT-TYPE",Cpt.l)
         If Cpt.l
-          Res.s=Right(Tmp.s,Len(Tmp.s)-Cpt.l-3)
+          Cpt.l=FindString(Tmp.s,Eol.s+Eol.s,Cpt.l)
+          If Cpt.l
+            Res.s=Right(Tmp.s,Len(Tmp.s)-Cpt.l-3)
+          EndIf
         EndIf
       EndIf
     EndIf    
@@ -77,7 +80,7 @@ Procedure AlertThread(Parameter)
       Next
       Ini.b=0 
     Else
-      AddSysTrayIcon(1, WindowID(0), IcoB.l)
+      ChangeSysTrayIcon(1, IcoB.l)
       PlaySound(OggN.l)
       Delay(10000)
       Ini.b=1
@@ -102,15 +105,15 @@ Procedure AlertThread(Parameter)
             EndIf
           Next
           If Err.l
-            AddSysTrayIcon(1, WindowID(0), IcoR.l)
+            ChangeSysTrayIcon(1, IcoR.l)
             UrlA.b=1
           Else
             If Wrn.l
               If Not UrlA.b
-                AddSysTrayIcon(1, WindowID(0), IcoP.l)            
+                ChangeSysTrayIcon(1, IcoP.l)            
               EndIf
             Else
-              AddSysTrayIcon(1, WindowID(0), IcoG.l)
+              ChangeSysTrayIcon(1, IcoG.l)
               UrlA.b=0  
             EndIf
           EndIf      
@@ -147,8 +150,7 @@ If InitSound() And InitNetwork() And OpenWindow(0, 0, 0, 300, 30, "CaSchd.rb - C
     If Event = #PB_Event_SysTray
       If EventType() = #PB_EventType_LeftDoubleClick
         If UrlA.b 
-          ChangeSysTrayIcon (EventGadget(), IcoP.l)
-;          SysTrayIconToolTip(EventGadget(), "Changed !")
+          ChangeSysTrayIcon (1, IcoP.l)
           UrlA.b=0;
         EndIf
         RunProgram(UrlC.s)
@@ -165,8 +167,8 @@ If InitSound() And InitNetwork() And OpenWindow(0, 0, 0, 300, 30, "CaSchd.rb - C
   Until Event = #PB_Event_CloseWindow 
 EndIf 
 ; IDE Options = PureBasic 4.31 (Windows - x86)
-; CursorPosition = 1
-; FirstLine = 1
+; CursorPosition = 152
+; FirstLine = 145
 ; Folding = -
 ; EnableThread
 ; EnableXP
