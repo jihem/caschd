@@ -1,3 +1,22 @@
+;
+; Copyright 2009 Jean-Marc "jihem" QUERE
+;
+; This file is part of CaSchd.
+;
+; CaSchd is free software: you can redistribute it And/Or modify
+; it under the terms of the GNU General Public License As published by
+; the Free Software Foundation, either version 3 of the License, Or
+; (at your option) any later version.
+;
+; CaSchd is distributed in the hope that it will be useful,
+; but WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY Or FITNESS For A PARTICULAR PURPOSE.  See the
+; GNU General Public License For more details.
+;
+; You should have received a copy of the GNU General Public License
+; along With Foobar.  If Not, see <http://www.gnu.org/licenses/>.
+;
+
 Global IcoB.l=LoadImage(0, "CaSchd_B.ico")
 Global IcoG.l=LoadImage(1, "CaSchd_G.ico")
 Global IcoR.l=LoadImage(2, "CaSchd_R.ico")
@@ -190,8 +209,6 @@ If InitSound() And InitNetwork() And OpenWindow(0, 0, 0, 300, 30, "CaSchd.rb - C
   Until Event = #PB_Event_CloseWindow 
 EndIf 
 ; IDE Options = PureBasic 4.31 (Windows - x86)
-; CursorPosition = 81
-; FirstLine = 71
 ; Folding = -
 ; EnableThread
 ; EnableXP
