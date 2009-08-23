@@ -20,8 +20,11 @@
 require 'net/http'
 require 'net/smtp'
 require 'net/pop'
+require 'net/ftp'
 require 'resolv'
 require 'uri'
+require 'tempfile'
+require 'ftools'
 
 class CaTest
     
@@ -30,6 +33,8 @@ class CaTest
         case prm['name']
         when 'smtp'
             res+=prm['args'][0..2].join(', ')
+        when 'fpfp'
+            res+=prm['args'][0..1].join(', ')+', '+prm['args'][4]+', '+prm['args'][6]+', '+prm['args'][9]
         when 'sppp'
             res+=prm['args'][0..2].join(', ')+', '+prm['args'][6]
         when 'htbt','pop3'
@@ -123,6 +128,34 @@ class CaTest
         dly,srv,uri,ipl=prm
         rsl=Resolv::DNS.new({:nameserver=>[srv],})
         return (' '+ipl+' ').include?(rsl.getaddress(uri).to_s)
+    end
+    
+    def fpfp(prm)
+        dly,sr1,lg1,ps1,fr1,fl1,sr2,lg2,ps2,fr2,fl2=prm
+        fl1="caschd.flg" if fl1==""
+        fl2="caschd.flg" if fl2==""
+        res=false
+
+        tmp=Tempfile.new('caschd','.')
+        tmp.close
+        begin       
+            cnx=Net::FTP.new(sr2,lg2,ps2)
+            cnx.passive=true
+            cnx.getbinaryfile(fr2, tmp.path, 1024)
+            cnx.delete(fr2)
+            cnx.close
+            res=File.compare(tmp.path,fl2)
+        rescue
+            #
+        end
+        tmp.unlink       
+        
+        cnx=Net::FTP.new(sr1,lg1,ps1)
+        cnx.passive=true
+        cnx.putbinaryfile(fl1,fr1, 1024)
+        cnx.close
+        
+        return res
     end
 end
 
