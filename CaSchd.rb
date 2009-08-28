@@ -20,8 +20,9 @@
 require 'webrick'
 require 'webrick/https'
 require 'yaml'
-require "CaJson"
-require "CaTest"
+require 'CaJson'
+require 'CaTest'
+require 'drb'
 
 class CaEvent
     
@@ -215,21 +216,118 @@ class CaSchd
                         timeout(dly) {
                             case prm['name']
                             when 'ping'
-                                res=@test.ping(prm['args'])
+                                if $dbry
+                                    $dbry[mid]=false
+                                    pid=fork {
+                                        DRb.start_service()
+                                        obj = DRbObject.new(nil, 'druby://localhost:'+$dbry)
+                                        res=@test.ping(prm['args'])
+                                        obj.set(mid,res)
+                                        DRb.stop
+                                    }
+                                    Process.wait(pid)
+                                    res=$dbry[mid]
+                                else
+                                    res=@test.ping(prm['args'])
+                                end
                             when 'http'
-                                res=@test.http(prm['args'])
+                                if $dbry
+                                    $dbry[mid]=false
+                                    pid=fork {
+                                        DRb.start_service()
+                                        obj = DRbObject.new(nil, 'druby://localhost:'+$dbry)
+                                        res=@test.http(prm['args'])
+                                        obj.set(mid,res)
+                                    }
+                                    Process.wait(pid)
+                                    res=$dbry[mid]
+                                else
+                                    res=@test.http(prm['args'])
+                                end  
                             when 'smtp'
-                                res=@test.smtp(prm['args'])
+                                if $dbry
+                                    $dbry[mid]=false
+                                    pid=fork {
+                                        DRb.start_service()
+                                        obj = DRbObject.new(nil, 'druby://localhost:'+$dbry)
+                                        res=@test.smtp(prm['args'])
+                                        obj.set(mid,res)
+                                    }
+                                    Process.wait(pid)
+                                    res=$dbry[mid]
+                                else
+                                    res=@test.smtp(prm['args'])
+                                end
                             when 'sppp'
-                                res=@test.sppp(prm['args'])
+                                if $dbry
+                                    $dbry[mid]=false
+                                    pid=fork {
+                                        DRb.start_service()
+                                        obj = DRbObject.new(nil, 'druby://localhost:'+$dbry)
+                                        res=@test.sppp(prm['args'])
+                                        obj.set(mid,res)
+                                    }
+                                    Process.wait(pid)
+                                    res=$dbry[mid]
+                                else
+                                    res=@test.sppp(prm['args'])
+                                end
                             when 'htbt'
-                                res=getHtbt(prm['args'][1])
+                                if $dbry
+                                    $dbry[mid]=false
+                                    pid=fork {
+                                        DRb.start_service()
+                                        obj = DRbObject.new(nil, 'druby://localhost:'+$dbry)
+                                        res=getHtbt(prm['args'][1])
+                                        obj.set(mid,res)
+                                    }
+                                    Process.wait(pid)
+                                    res=$dbry[mid]
+                                else
+                                    res=getHtbt(prm['args'][1])
+                                end
                             when 'pop3'
-                                res=@test.pop3(prm['args'])
+                                if $dbry
+                                    $dbry[mid]=false
+                                    pid=fork {
+                                        DRb.start_service()
+                                        obj = DRbObject.new(nil, 'druby://localhost:'+$dbry)
+                                        res=@test.pop3(prm['args'])
+                                        obj.set(mid,res)
+                                    }
+                                    Process.wait(pid)
+                                    res=$dbry[mid]
+                                else
+                                    res=@test.pop3(prm['args'])
+                                end
                             when 'rdns'
-                                res=@test.rdns(prm['args'])
+                                if $dbry
+                                    $dbry[mid]=false
+                                    pid=fork {
+                                        DRb.start_service()
+                                        obj = DRbObject.new(nil, 'druby://localhost:'+$dbry)
+                                        res=@test.rdns(prm['args'])
+                                        obj.set(mid,res)
+                                    }
+                                    Process.wait(pid)
+                                    res=$dbry[mid]
+                                else
+                                    res=@test.rdns(prm['args'])
+                                end
                             when 'fpfp'
-                                res=@test.fpfp(prm['args'])
+                                if $dbry
+                                    $dbry[mid]=false
+                                    pid=fork {
+                                        DRb.start_service()
+                                        obj = DRbObject.new(nil, 'druby://localhost:'+$dbry)
+                                        res=@test.fpfp(prm['args'])
+                                        obj.set(mid,res)
+                                    }
+                                    Process.wait(pid)
+                                    res=$dbry[mid]
+                                else
+                                    res=@test.fpfp(prm['args'])
+                                end
                             end
                         }
                     rescue
@@ -620,6 +718,29 @@ err=nil
 tst=['*','%']
 dta=CaJson.new('caschd.conf')
 if dta.data
+    # conf
+    if dta.data['conf']
+        if dta.data['conf']['port']
+            if dta.data['conf']['port'].class.to_s=='Fixnum'
+                if dta.data['conf']['port']<0 || dta.data['conf']['port']>65535
+                    err="'test' section, wrong port value"
+
+                end
+            else
+                err="'conf' section, port isn't a Fixnum"
+            end
+        end        
+        if dta.data['conf']['drby']
+            if dta.data['conf']['drby'].class.to_s=='Fixnum'
+                if dta.data['conf']['drby']==dta.data['conf']['port'] || dta.data['conf']['drby']<0 || dta.data['conf']['drby']>65535
+                    err="'conf' section, wrong drby value"
+                end
+            else
+                err="'conf' section, drby isn't a Fixnum"
+            end            
+        end
+    end
+    
     # test
     if dta.data['test']
         dta.data['test'].each { | te |
@@ -823,18 +944,41 @@ else
     err="near '#{dta.resp}'\n"
 end
 
+$port=2000
+$drby=false
+$dres=[ false ]*40
+
+class CaRdby
+  def set(mid,res)
+    $dres[mid]=res
+  end
+end
+
 if err
     print "Error in caschd.conf #{err}\n"
 else
+    if dta.data['conf']
+        $port=dta.data['conf']['port'] ? dta.data['conf']['port'] : $port
+        $drby=dta.data['conf']['drby'] ? dta.data['conf']['drby'] : $drby
+    end
+    
+    if $drby
+        #aServerObject = TestServer.new
+        DRb.start_service('druby://localhost:'+$drby.to_s, CaRdby.new)        
+    end
+    
     Socket.do_not_reverse_lookup = true
     sch=CaSchd.new(dta)
     Thread.new {
         sch.start
         web.shutdown
+        if ($drby)
+            DRb.stop_service()
+        end
     }
     
     web=WEBrick::HTTPServer.new(
-      :Port            => 2000,
+      :Port            => $port,
       :DocumentRoot    => Dir::pwd + "/htdocs" #,
      # :SSLEnable       => true,
      # :SSLVerifyClient => ::OpenSSL::SSL::VERIFY_NONE,
@@ -872,7 +1016,7 @@ else
             end
             day='1234560'
             day[now[0..0]]='['+now[0..0]+']'
-            res.body = "<html><body><table border=\"1\" width=\"640\"><tr><td width=\"140\"><a href=\"http://wdwave.dnsalias.com\">CaSchd.rb</a><br/>20090823</td><td>#{now[1..2]}:#{now[3..4]} #{day} - #{prm['page']}</br>"+sch.getPage('%')+"</td></tr></table>"
+            res.body = "<html><body><table border=\"1\" width=\"640\"><tr><td width=\"140\"><a href=\"http://wdwave.dnsalias.com\">CaSchd.rb</a> ["+($drby ? "Red T." : "Green T.")+"]<br/>20090828</td><td>#{now[1..2]}:#{now[3..4]} #{day} - #{prm['page']}</br>"+sch.getPage('%')+"</td></tr></table>"
             res.body+="<table border=\"0\" width=\"640\"><tr><td valign=\"top\" width=\"140\">"
             res.body+=sch.getPage('*')+"</td><td  valign=\"top\">"
             if prm['page']=='*'
@@ -886,6 +1030,11 @@ else
         end    
     }
     
-    trap("INT"){ web.shutdown }
+    trap("INT"){
+        web.shutdown
+        if ($drby)
+            DRb.stop_service()
+        end
+    }
     web.start
 end
