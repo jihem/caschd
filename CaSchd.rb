@@ -253,7 +253,7 @@ class CaSchd
                                     Process.wait(pid)
                                     res=$dres[mid]
                                 else
-                                    res=@test.ping(prm['args'])
+                                    res=@test.send(prm['name'],prm['args'])
                                 end 
                             end
                         }
@@ -640,8 +640,9 @@ begin
     err="Error: can\'t create directory \'htdocs\'\n"
     FileUtils.mkdir('htdocs') unless File.directory?('htdocs')
     if File.directory?('htdocs')
+        err="Error: caschd.conf not found\n" 
+        dta=CaJson.new('caschd.conf')
         err=nil
-        dta=CaJson.new('caschd.conf')    
     end
 rescue
     #
