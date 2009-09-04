@@ -244,106 +244,17 @@ class CaSchd
                     pid=nil
                     begin
                         timeout(dly) {
-                            case prm['name']
-                            when 'ping'
+                            if @test.respond_to?(prm['name'])
                                 if $drby
                                     $dres[mid]=false
                                     pid=fork {
-                                        CaRdby.update(mid,@test.ping(prm['args']))
+                                        CaRdby.update(mid,@test.send(prm['name'],prm['args']))
                                     }
                                     Process.wait(pid)
                                     res=$dres[mid]
                                 else
                                     res=@test.ping(prm['args'])
-                                end
-                            when 'http'
-                                if $drby
-                                    $dres[mid]=false
-                                    pid=fork {
-                                        CaRdby.update(mid,@test.http(prm['args']))
-                                    }
-                                    Process.wait(pid)
-                                    res=$dres[mid]
-                                else
-                                    res=@test.http(prm['args'])
-                                end  
-                            when 'smtp'
-                                if $drby
-                                    $dres[mid]=false
-                                    pid=fork {
-                                        CaRdby.update(mid,@test.smtp(prm['args']))                                      
-                                    }
-                                    Process.wait(pid)
-                                    res=$dres[mid]
-                                else
-                                    res=@test.smtp(prm['args'])
-                                end
-                            when 'sppp'
-                                if $drby
-                                    $dres[mid]=false
-                                    pid=fork {
-                                        CaRdby.update(mid,@test.sppp(prm['args']))                                     
-                                    }
-                                    Process.wait(pid)
-                                    res=$dres[mid]
-                                else
-                                    res=@test.sppp(prm['args'])
-                                end
-                            when 'htbt'
-                                if $drby
-                                    $dres[mid]=false
-                                    pid=fork {
-                                        CaRdby.update(mid,getHtbt(prm['args'][1]))                                      
-                                    }
-                                    Process.wait(pid)
-                                    res=$dres[mid]
-                                else
-                                    res=getHtbt(prm['args'][1])
-                                end
-                            when 'pop3'
-                                if $drby
-                                    $dres[mid]=false
-                                    pid=fork {
-                                        CaRdby.update(mid,@test.pop3(prm['args']))                                       
-                                    }
-                                    Process.wait(pid)
-                                    res=$dres[mid]
-                                else
-                                    res=@test.pop3(prm['args'])
-                                end
-                            when 'rdns'
-                                if $drby
-                                    $dres[mid]=false
-                                    pid=fork {
-                                        CaRdby.update(mid,@test.rdns(prm['args']))                                     
-                                    }
-                                    Process.wait(pid)
-                                    res=$dres[mid]
-                                else
-                                    res=@test.rdns(prm['args'])
-                                end
-                            when 'fpfp'
-                                if $drby
-                                    $dres[mid]=false
-                                    pid=fork {
-                                        CaRdby.update(mid,@test.fpfp(prm['args']))                                      
-                                    }
-                                    Process.wait(pid)
-                                    res=$dres[mid]
-                                else
-                                    res=@test.fpfp(prm['args'])
-                                end
-                            when 'cnsl'
-                                if $drby
-                                    $dres[mid]=false
-                                    pid=fork {
-                                        CaRdby.update(mid,@test.cnsl(prm['args']))                                      
-                                    }
-                                    Process.wait(pid)
-                                    res=$dres[mid]
-                                else
-                                    res=@test.fpfp(prm['args'])
-                                end                            
+                                end 
                             end
                         }
                     rescue
