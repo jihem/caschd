@@ -56,10 +56,11 @@ class CaJson
     
     def getString(str)
         exp=str.lstrip
-        res=exp.match(/^"[^"]*"/)
+        res=exp.match(/^"([^"]||"")*"/)
         if res
             exp=exp[res[0].length..exp.length-1]
             res=res[0][1..res[0].length-2]
+            res.gsub!('""','"')
         end
         return [exp,res]        
     end

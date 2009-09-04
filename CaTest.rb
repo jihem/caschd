@@ -29,19 +29,24 @@ require 'ftools'
 class CaTest
     
     def info(prm)
-        res=prm['name']+' '
-        case prm['name']
-        when 'smtp'
-            res+=prm['args'][0..2].join(', ')
-        when 'fpfp'
-            res+=prm['args'][0..1].join(', ')+', '+prm['args'][4]+', '+prm['args'][6]+', '+prm['args'][9]
-        when 'sppp'
-            res+=prm['args'][0..2].join(', ')+', '+prm['args'][6]
-        when 'htbt','pop3'
-            res+=prm['args'][0..1].join(', ')
-        else # ping http 
-            res+=prm['args'].join(', ')
-        end        
+        res=nil
+        if prm['info']
+            res=prm['info']    
+        else
+            res=prm['name']+' '
+            case prm['name']
+            when 'smtp'
+                res+=prm['args'][0..2].join(', ')
+            when 'fpfp'
+                res+=prm['args'][0..1].join(', ')+', '+prm['args'][4]+', '+prm['args'][6]+', '+prm['args'][9]
+            when 'sppp'
+                res+=prm['args'][0..2].join(', ')+', '+prm['args'][6]
+            when 'htbt','pop3'
+                res+=prm['args'][0..1].join(', ')
+            else # ping http 
+                res+=prm['args'].join(', ')
+            end
+        end
         return res
     end
     
@@ -156,6 +161,66 @@ class CaTest
         cnx.close
         
         return res
+    end
+    
+    def cnsl(prm)
+        dly,url,tst,lvl=prm
+        tst='#'+tst+'#'
+        wrk=true
+        pos=0
+        mem=nil
+        res=true
+        
+        while (wrk)            
+            rep= Net::HTTP.get_response(URI.parse("http://#{url}/?cnsl=*"))
+            case rep
+                when Net::HTTPSuccess
+                    # OK
+                    mem=rep.body[0..14]
+                    ind=14
+                    while (ind<rep.body.length)
+                        if (rep.body[ind..ind]=='#')
+                            pos=rep.body.index('#',ind+1).to_i-1
+                            if (pos==-1)
+                                pos=rep.body.length-1
+                            end
+                            if tst.length>0
+                                if tst.index('#'+rep.body[ind+1,pos-ind]+'#')
+                                    mem+='0'
+                                else
+                                    mem+='-'
+                                end
+                            else
+                                mem+='0'
+                            end
+                        end
+                        ind=pos+1
+                    end
+                else
+                    res=false
+            end
+            
+            if (mem)
+                rep= Net::HTTP.get_response(URI.parse("http://#{url}/?cnsl=?"))
+                case rep
+                    when Net::HTTPSuccess
+                        # OK
+                        if mem[0..14]==rep.body[0..14]
+                            wrk=false
+                            for ind in (15..rep.body.length)
+                                if mem[ind..ind]!='-'
+                                    if (rep.body[ind..ind].to_i>=lvl)
+                                        res=false
+                                    end
+                                end
+                            end
+                        end
+                    else
+                        res=false
+                end
+            end
+        end
+        return res        
     end
 end
 

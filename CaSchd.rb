@@ -26,6 +26,7 @@ require 'drb'
 
 sch=nil
 web=nil
+dta=nil
 err=nil
 tst=['*','%']
 
@@ -93,7 +94,7 @@ class CaSchd
         hnow=getNow
         @wday=hnow[0..0]
         @json.data['test'].each { | ts |
-            ts['file']=ts['name'].gsub(/\W/,'_')+'_'+@hdte+".csv"
+            ts['file']='htdocs/'+ts['name'].gsub(/\W/,'_')+'_'+@hdte+".csv"
             ts['exec'].each { | ex |
                 ex['cdwn']=ex['redo']
                 ex['ccrt']=0
@@ -332,6 +333,17 @@ class CaSchd
                                 else
                                     res=@test.fpfp(prm['args'])
                                 end
+                            when 'cnsl'
+                                if $drby
+                                    $dres[mid]=false
+                                    pid=fork {
+                                        CaRdby.update(mid,@test.cnsl(prm['args']))                                      
+                                    }
+                                    Process.wait(pid)
+                                    res=$dres[mid]
+                                else
+                                    res=@test.fpfp(prm['args'])
+                                end                            
                             end
                         }
                     rescue
@@ -365,7 +377,7 @@ class CaSchd
                     end
                 else
                     if prm['cdwn']==0
-                        addLogh('HS : '+@test.info(prm))
+                        addLogh('KO : '+@test.info(prm))
                     end
                     if prm['cdwn']>-1
                         prm['cdwn']-=1
@@ -582,7 +594,7 @@ class CaSchd
                 vl=lst[nm]
                 sbj=nm
                 if (vl[1]==-1)
-                    sbj+=" HS!"
+                    sbj+=" KO!"
                     pgc+='2'
                 elsif (vl[2]==-1)
                     sbj+=" OK?"
@@ -697,7 +709,7 @@ class CaSchd
                             if res
                                 addLogh("** : #{sbj} (#{itm['user']} OK #{dly}/#{mly})")
                             else
-                                addLogh("** : #{sbj} (#{itm['user']} HS)")    
+                                addLogh("** : #{sbj} (#{itm['user']} KO)")    
                             end
                         }
                         @pool.delete(nm)
@@ -713,236 +725,248 @@ class CaSchd
     end
 end
 
-dta=CaJson.new('caschd.conf')
-if dta.data
-    # conf
-    if dta.data['conf']
-        if dta.data['conf']['port']
-            if dta.data['conf']['port'].class.to_s=='Fixnum'
-                if dta.data['conf']['port']<0 || dta.data['conf']['port']>65535
-                    err="'test' section, wrong port value"
+begin
+    err="Error: can\'t create directory \'htdocs\'\n"
+    FileUtils.mkdir('htdocs') unless File.directory?('htdocs')
+    if File.directory?('htdocs')
+        err=nil
+        dta=CaJson.new('caschd.conf')    
+    end
+rescue
+    #
+end
 
+if (! err)
+    if dta.data
+        # conf
+        if dta.data['conf']
+            if dta.data['conf']['port']
+                if dta.data['conf']['port'].class.to_s=='Fixnum'
+                    if dta.data['conf']['port']<0 || dta.data['conf']['port']>65535
+                        err="'test' section, wrong port value"
+                    end
+                else
+                    err="'conf' section, port isn't a Fixnum"
                 end
-            else
-                err="'conf' section, port isn't a Fixnum"
+            end        
+            if dta.data['conf']['drby']
+                if dta.data['conf']['drby'].class.to_s=='Fixnum'
+                    if dta.data['conf']['drby']==dta.data['conf']['port'] || dta.data['conf']['drby']<0 || dta.data['conf']['drby']>65535
+                        err="'conf' section, wrong drby value"
+                    end
+                else
+                    err="'conf' section, drby isn't a Fixnum"
+                end            
             end
-        end        
-        if dta.data['conf']['drby']
-            if dta.data['conf']['drby'].class.to_s=='Fixnum'
-                if dta.data['conf']['drby']==dta.data['conf']['port'] || dta.data['conf']['drby']<0 || dta.data['conf']['drby']>65535
-                    err="'conf' section, wrong drby value"
-                end
-            else
-                err="'conf' section, drby isn't a Fixnum"
-            end            
         end
-    end
-    
-    # test
-    if dta.data['test']
-        dta.data['test'].each { | te |
-            if (! err)
-                if te['name']
-                    if tst.index(te['name'])==nil
-                        tst<<te['name']
+        
+        # test
+        if dta.data['test']
+            dta.data['test'].each { | te |
+                if (! err)
+                    if te['name']
+                        if tst.index(te['name'])==nil
+                            tst<<te['name']
+                        else
+                            err="'test' section '#{te['name']}' duplicate or reserved"                        
+                        end
                     else
-                        err="'test' section '#{te['name']}' duplicate or reserved"                        
+                        err="'test' section without name"
                     end
-                else
-                    err="'test' section without name"
                 end
-            end
-            if (! err) && (te['doit']==nil)
-                err="'test' section '#{te['name']}, property 'doit' not defined"
-            end
-            if (! err)
-                if te['time']
-                    te['time'].each { | tm |
-                        if (! err)
-                            if tm['days']
-                                if (! err) && (! tm['days'].match(/^(-|[0-6])+$/))
-                                    err="'test' section '#{te['name']}, in 'time' property, wrong 'days'"                        
-                                end
-                            else
-                                err="'test' section '#{te['name']}, in 'time' property, 'days' not defined"                    
-                            end
-                        end
-                        if (! err)
-                            if tm['from']
-                                if (tm['from'].length!=4) || ((tm['from']!='2400') && ((tm['from'][0..1]<'00') || (tm['from'][0..1]>'23') || (tm['from'][2..3]<'00') || (tm['from'][2..3]>'59')))
-                                    err="'test' section '#{te['name']}, in 'time' property, wrong 'from'"                        
-                                end
-                            else
-                                err="'test' section '#{te['name']}, in 'time' property, 'from' not defined"         
-                            end
-                        end
-                        if (! err)
-                            if tm['to']
-                                if (tm['to'].length!=4) || ((tm['to']!='2400') && ((tm['to'][0..1]<'00') || (tm['to'][0..1]>'23') || (tm['to'][2..3]<'00') || (tm['to'][2..3]>'59')))
-                                    err="'test' section '#{te['name']}, in 'time' property, wrong 'to'"                        
-                                end                        
-                            else
-                                err="'test' section '#{te['name']}, in 'time' property, 'to' not defined"        
-                            end
-                        end
-                        if (! err)
-                            if tm['wait']
-                                if (tm['wait']<-1) || (tm['wait']>=1440)
-                                    err="'test' section '#{te['name']}, in 'time' property, wrong 'wait'"                                    
-                                end
-                            else
-                                err="'test' section '#{te['name']}, in 'time' property, 'wait' not defined"          
-                            end
-                        end
-                    }
-                else
-                    err="'test' section '#{te['name']}, property 'time' not defined"
-                end
-            end
-            if (! err)
-                if te['exec']
-                    te['exec'].each { | ex |
-                        if (! err) && (! ex['name'])
-                            err="'test' section '#{te['name']}, property 'exec', 'name' not defined"                        
-                        end
-                        if (! err) && (! ex['args'])
-                            err="'test' section '#{te['name']}, property 'exec', 'args' not defined"                                                
-                        end
-                        if (! err)
-                            if ex['redo']
-                                if (ex['redo']<0) || (ex['redo']>99)
-                                    err="'test' section '#{te['name']}, property 'exec', wrong 'redo'"                                                                            
-                                end   
-                            else
-                                #err="'test' section '#{te['name']}, property 'exec', 'redo' not defined"
-                                ex['redo']=0
-                            end
-                        end
-                        if (! err) && (ex['atom']==nil)
-                            ex['atom']=true
-                        end
-                    }
-                else
-                    err="'test' section '#{te['name']}, property 'exec' not defined"
-                end
-            end
-        }
-    else
-        err="'test' section not defined"
-    end
-
-    # user
-    if (! err)
-        if dta.data['user']
-            dta.data['user'].each { | us |   
-                if (! err) && (! us['name'])
-                    err="'user' section without name"
-                end
-                if (! err) && (us['doit']==nil)
-                    err="'user' section '#{us['name']}, property 'doit' not defined"
+                if (! err) && (te['doit']==nil)
+                    err="'test' section '#{te['name']}, property 'doit' not defined"
                 end
                 if (! err)
-                    if us['tmok']
-                        us['tmok'].each { | tm |
+                    if te['time']
+                        te['time'].each { | tm |
                             if (! err)
                                 if tm['days']
                                     if (! err) && (! tm['days'].match(/^(-|[0-6])+$/))
-                                        err="'user' section '#{us['name']}, in 'tmok' property, wrong 'days'"                        
+                                        err="'test' section '#{te['name']}, in 'time' property, wrong 'days'"                        
                                     end
                                 else
-                                    err="'user' section '#{us['name']}, in 'tmok' property, 'days' not defined"                    
+                                    err="'test' section '#{te['name']}, in 'time' property, 'days' not defined"                    
                                 end
                             end
                             if (! err)
                                 if tm['from']
                                     if (tm['from'].length!=4) || ((tm['from']!='2400') && ((tm['from'][0..1]<'00') || (tm['from'][0..1]>'23') || (tm['from'][2..3]<'00') || (tm['from'][2..3]>'59')))
-                                        err="'user' section '#{us['name']}, in 'tmok' property, wrong 'from'"                        
+                                        err="'test' section '#{te['name']}, in 'time' property, wrong 'from'"                        
                                     end
                                 else
-                                    err="'user' section '#{us['name']}, in 'tmok' property, 'from' not defined"         
+                                    err="'test' section '#{te['name']}, in 'time' property, 'from' not defined"         
                                 end
                             end
                             if (! err)
                                 if tm['to']
                                     if (tm['to'].length!=4) || ((tm['to']!='2400') && ((tm['to'][0..1]<'00') || (tm['to'][0..1]>'23') || (tm['to'][2..3]<'00') || (tm['to'][2..3]>'59')))
-                                        err="'user' section '#{us['name']}, in 'tmok' property, wrong 'to'"                        
+                                        err="'test' section '#{te['name']}, in 'time' property, wrong 'to'"                        
                                     end                        
                                 else
-                                    err="'user' section '#{us['name']}, in 'tmok' property, 'to' not defined"        
+                                    err="'test' section '#{te['name']}, in 'time' property, 'to' not defined"        
                                 end
                             end
-                        }
-                    else
-                        err="'user' section '#{us['name']}, property 'tmok' not defined"
-                    end
-                    if us['tmhs']
-                        us['tmhs'].each { | tm |
                             if (! err)
-                                if tm['days']
-                                    if (! err) && (! tm['days'].match(/^(-|[0-6])+$/))
-                                        err="'user' section '#{us['name']}, in 'tmhs' property, wrong 'days'"                        
+                                if tm['wait']
+                                    if (tm['wait']<-1) || (tm['wait']>=1440)
+                                        err="'test' section '#{te['name']}, in 'time' property, wrong 'wait'"                                    
                                     end
                                 else
-                                    err="'user' section '#{us['name']}, in 'tmhs' property, 'days' not defined"                    
-                                end
-                            end
-                            if (! err)
-                                if tm['from']
-                                    if (tm['from'].length!=4) || ((tm['from']!='2400') && ((tm['from'][0..1]<'00') || (tm['from'][0..1]>'23') || (tm['from'][2..3]<'00') || (tm['from'][2..3]>'59')))
-                                        err="'user' section '#{us['name']}, in 'tmhs' property, wrong 'from'"                        
-                                    end
-                                else
-                                    err="'user' section '#{us['name']}, in 'tmhs' property, 'from' not defined"         
-                                end
-                            end
-                            if (! err)
-                                if tm['to']
-                                    if (tm['to'].length!=4) || ((tm['to']!='2400') && ((tm['to'][0..1]<'00') || (tm['to'][0..1]>'23') || (tm['to'][2..3]<'00') || (tm['to'][2..3]>'59')))
-                                        err="'user' section '#{us['name']}, in 'tmhs' property, wrong 'to'"                        
-                                    end                        
-                                else
-                                    err="'user' section '#{us['name']}, in 'tmhs' property, 'to' not defined"        
+                                    err="'test' section '#{te['name']}, in 'time' property, 'wait' not defined"          
                                 end
                             end
                         }
                     else
-                        err="'user' section '#{us['name']}, property 'tmhs' not defined"
-                    end                    
-                end
-                if (! err)
-                    if us['test']
-                        us['test'].each { | te |
-                            if (! err) && (tst.index(te)==nil)
-                                err="'user' section '#{us['name']}, property 'test', test '#{te}' unkown"                                                
-                            end
-                        }
-                    else
-                        err="'user' section '#{us['name']}, property 'test' not defined"
+                        err="'test' section '#{te['name']}, property 'time' not defined"
                     end
                 end
                 if (! err)
-                    if us['exec']    
-                        if (! err) && (! us['exec']['name'])
-                            err="'user' section '#{us['name']}, property 'exec', 'name' not defined"                        
-                        end
-                        if (! err) && (! us['exec']['args'])
-                            err="'user' section '#{us['name']}, property 'exec', 'args' not defined"                                                
-                        end         
+                    if te['exec']
+                        te['exec'].each { | ex |
+                            if (! err) && (! ex['name'])
+                                err="'test' section '#{te['name']}, property 'exec', 'name' not defined"                        
+                            end
+                            if (! err) && (! ex['args'])
+                                err="'test' section '#{te['name']}, property 'exec', 'args' not defined"                                                
+                            end
+                            if (! err)
+                                if ex['redo']
+                                    if (ex['redo']<0) || (ex['redo']>99)
+                                        err="'test' section '#{te['name']}, property 'exec', wrong 'redo'"                                                                            
+                                    end   
+                                else
+                                    #err="'test' section '#{te['name']}, property 'exec', 'redo' not defined"
+                                    ex['redo']=0
+                                end
+                            end
+                            if (! err) && (ex['atom']==nil)
+                                ex['atom']=true
+                            end
+                        }
                     else
-                        err="'user' section '#{us['name']}, property 'exec' not defined"
+                        err="'test' section '#{te['name']}, property 'exec' not defined"
                     end
-                end    
+                end
             }
         else
-            err="'user' section not defined"
+            err="'test' section not defined"
         end
+    
+        # user
+        if (! err)
+            if dta.data['user']
+                dta.data['user'].each { | us |   
+                    if (! err) && (! us['name'])
+                        err="'user' section without name"
+                    end
+                    if (! err) && (us['doit']==nil)
+                        err="'user' section '#{us['name']}, property 'doit' not defined"
+                    end
+                    if (! err)
+                        if us['tmok']
+                            us['tmok'].each { | tm |
+                                if (! err)
+                                    if tm['days']
+                                        if (! err) && (! tm['days'].match(/^(-|[0-6])+$/))
+                                            err="'user' section '#{us['name']}, in 'tmok' property, wrong 'days'"                        
+                                        end
+                                    else
+                                        err="'user' section '#{us['name']}, in 'tmok' property, 'days' not defined"                    
+                                    end
+                                end
+                                if (! err)
+                                    if tm['from']
+                                        if (tm['from'].length!=4) || ((tm['from']!='2400') && ((tm['from'][0..1]<'00') || (tm['from'][0..1]>'23') || (tm['from'][2..3]<'00') || (tm['from'][2..3]>'59')))
+                                            err="'user' section '#{us['name']}, in 'tmok' property, wrong 'from'"                        
+                                        end
+                                    else
+                                        err="'user' section '#{us['name']}, in 'tmok' property, 'from' not defined"         
+                                    end
+                                end
+                                if (! err)
+                                    if tm['to']
+                                        if (tm['to'].length!=4) || ((tm['to']!='2400') && ((tm['to'][0..1]<'00') || (tm['to'][0..1]>'23') || (tm['to'][2..3]<'00') || (tm['to'][2..3]>'59')))
+                                            err="'user' section '#{us['name']}, in 'tmok' property, wrong 'to'"                        
+                                        end                        
+                                    else
+                                        err="'user' section '#{us['name']}, in 'tmok' property, 'to' not defined"        
+                                    end
+                                end
+                            }
+                        else
+                            err="'user' section '#{us['name']}, property 'tmok' not defined"
+                        end
+                        if us['tmhs']
+                            us['tmhs'].each { | tm |
+                                if (! err)
+                                    if tm['days']
+                                        if (! err) && (! tm['days'].match(/^(-|[0-6])+$/))
+                                            err="'user' section '#{us['name']}, in 'tmhs' property, wrong 'days'"                        
+                                        end
+                                    else
+                                        err="'user' section '#{us['name']}, in 'tmhs' property, 'days' not defined"                    
+                                    end
+                                end
+                                if (! err)
+                                    if tm['from']
+                                        if (tm['from'].length!=4) || ((tm['from']!='2400') && ((tm['from'][0..1]<'00') || (tm['from'][0..1]>'23') || (tm['from'][2..3]<'00') || (tm['from'][2..3]>'59')))
+                                            err="'user' section '#{us['name']}, in 'tmhs' property, wrong 'from'"                        
+                                        end
+                                    else
+                                        err="'user' section '#{us['name']}, in 'tmhs' property, 'from' not defined"         
+                                    end
+                                end
+                                if (! err)
+                                    if tm['to']
+                                        if (tm['to'].length!=4) || ((tm['to']!='2400') && ((tm['to'][0..1]<'00') || (tm['to'][0..1]>'23') || (tm['to'][2..3]<'00') || (tm['to'][2..3]>'59')))
+                                            err="'user' section '#{us['name']}, in 'tmhs' property, wrong 'to'"                        
+                                        end                        
+                                    else
+                                        err="'user' section '#{us['name']}, in 'tmhs' property, 'to' not defined"        
+                                    end
+                                end
+                            }
+                        else
+                            err="'user' section '#{us['name']}, property 'tmhs' not defined"
+                        end                    
+                    end
+                    if (! err)
+                        if us['test']
+                            us['test'].each { | te |
+                                if (! err) && (tst.index(te)==nil)
+                                    err="'user' section '#{us['name']}, property 'test', test '#{te}' unkown"                                                
+                                end
+                            }
+                        else
+                            err="'user' section '#{us['name']}, property 'test' not defined"
+                        end
+                    end
+                    if (! err)
+                        if us['exec']    
+                            if (! err) && (! us['exec']['name'])
+                                err="'user' section '#{us['name']}, property 'exec', 'name' not defined"                        
+                            end
+                            if (! err) && (! us['exec']['args'])
+                                err="'user' section '#{us['name']}, property 'exec', 'args' not defined"                                                
+                            end         
+                        else
+                            err="'user' section '#{us['name']}, property 'exec' not defined"
+                        end
+                    end    
+                }
+            else
+                err="'user' section not defined"
+            end
+        end
+    else
+        err="near '#{dta.resp}'\n"
     end
-else
-    err="near '#{dta.resp}'\n"
+    err="Error: in caschd.conf #{err}\n" if err
 end
 
 if err
-    print "Error in caschd.conf #{err}\n"
+    print err
 else
     if dta.data['conf']
         $port=dta.data['conf']['port'] ? dta.data['conf']['port'] : $port
@@ -994,7 +1018,7 @@ else
             if sch.setHtbt(prm['htbt'],prm['pswd'])
                 res.body="#{now}:OK"
             else
-                res.body="#{now}:HS"
+                res.body="#{now}:KO"
             end
             res['Content-Type'] = "text/plain"
         else
@@ -1003,7 +1027,7 @@ else
             end
             day='1234560'
             day[now[0..0]]='['+now[0..0]+']'
-            res.body = "<html><body><table border=\"1\" width=\"640\"><tr><td width=\"140\"><a href=\"http://wdwave.dnsalias.com\">CaSchd.rb</a> ["+($drby ? "Red T." : "Green T.")+"]<br/>20090828</td><td>#{now[1..2]}:#{now[3..4]} #{day} - #{prm['page']}</br>"+sch.getPage('%')+"</td></tr></table>"
+            res.body = "<html><body><table border=\"1\" width=\"640\"><tr><td width=\"140\"><a href=\"http://wdwave.dnsalias.com\">CaSchd.rb</a> ["+($drby ? "Red T." : "Green T.")+"]<br/>20090904</td><td>#{now[1..2]}:#{now[3..4]} #{day} - #{prm['page']}</br>"+sch.getPage('%')+"</td></tr></table>"
             res.body+="<table border=\"0\" width=\"640\"><tr><td valign=\"top\" width=\"140\">"
             res.body+=sch.getPage('*')+"</td><td  valign=\"top\">"
             if prm['page']=='*'
