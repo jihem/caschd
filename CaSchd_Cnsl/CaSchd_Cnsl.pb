@@ -14,7 +14,7 @@
 ; GNU General Public License For more details.
 ;
 ; You should have received a copy of the GNU General Public License
-; along With Foobar.  If Not, see <http://www.gnu.org/licenses/>.
+; along With CaSchd. If Not, see <http://www.gnu.org/licenses/>.
 ;
 
 Global IcoB.l=LoadImage(0, "CaSchd_B.ico")
@@ -209,6 +209,7 @@ If InitSound() And InitNetwork() And OpenWindow(0, 0, 0, 300, 30, "CaSchd.rb - C
   Until Event = #PB_Event_CloseWindow 
 EndIf 
 ; IDE Options = PureBasic 4.31 (Windows - x86)
+; CursorPosition = 16
 ; Folding = -
 ; EnableThread
 ; EnableXP
