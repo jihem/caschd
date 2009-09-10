@@ -254,7 +254,9 @@ class CaSchd
                                     res=$dres[mid]
                                 else
                                     res=@test.send(prm['name'],prm['args'])
-                                end 
+                                end
+                            else
+                                res=prm['name']=='htbt'? getHtbt(prm['args'][1]) : false
                             end
                         }
                     rescue
@@ -352,9 +354,9 @@ class CaSchd
                                 fcv=open(ev.test['file'],'a')
                             else
                                 fcv=open(ev.test['file'],'w')
-                                fbf='date;time'
+                                fbf='"date";"time"'
                                 ev.test['exec'].each { | ex |
-                                    fbf+=';'+ex['name']+'_'+ex['args'][1].to_s.gsub(/\W/,'_')
+                                    fbf+=';"'+ex['name']+'_'+ex['args'][1].to_s.gsub(/\W/,'_')+'"'
                                 }
                                 fcv.write(fbf+"\n")
                             end
@@ -362,7 +364,7 @@ class CaSchd
                             #
                         end
                         fbf=getDate
-                        fbf=fbf[0..7]+';'+fbf[8..11]
+                        fbf='"'+fbf[0..3]+'/'+fbf[4..5]+'/'+fbf[6..7]+'";"'+fbf[8..9]+':'+fbf[10..11]+'"'
                         ev.test['exec'].each { | ex |
                             fbf+=';'+ (ex['cdwn']!=-1 ? ("%01.1f" %ex['ccrt']) : '-1')
                             if flg && ( (ex['cdwn']==-1) || (! ex['atom']) || (ex['atom'] && fok) )
@@ -544,19 +546,37 @@ class CaSchd
                                     if us['exec']['name']=='smtp'
                                         msg="#{sbj}\t"
                                         if sbj=~ /OK.$/
-                                            if prm[3].include?("p")
-                                                msg+=getPage(nm)+"\n"                                            
-                                            end
-                                            if prm[3].include?("l")
-                                                msg+="<br/>\n"+getLogh()+"\n" 
-                                            end
+                                            prm[3].split(//).each { |cr|
+                                                case cr
+                                                when "p"
+                                                    msg+=getPage(nm)+"<br/>\n"                                            
+                                                when "l"
+                                                    msg+=getLogh()+"<br/>\n" 
+                                                when "f"
+                                                    fln='_'+nm.to_s.gsub(/\W/,'_')
+                                                    fln=File.file?(fln+'.OK') ? fln+'.OK' : fln
+                                                    if File.file?(fln)
+                                                        fle=File.new(fln)
+                                                        msg+=fle.read(File.size(fln))+"<br/>\n"
+                                                    end
+                                                end                            
+                                            }
                                         else
-                                            if prm[3].include?("P")
-                                                msg+=getPage(nm)+"\n"                                            
-                                            end
-                                            if prm[3].include?("L")
-                                                msg+="<br/>\n"+getLogh()+"\n" 
-                                            end                                        
+                                            prm[3].split(//).each { |cr|
+                                                case cr
+                                                when "P"
+                                                    msg+=getPage(nm)+"<br/>\n"                                            
+                                                when "L"
+                                                    msg+=getLogh()+"<br/>\n" 
+                                                when "F"
+                                                    fln='_'+nm.to_s.gsub(/\W/,'_')
+                                                    fln=File.file?(fln+'.KO') ? fln+'.KO' : fln
+                                                    if File.file?(fln)
+                                                        fle=File.new(fln)
+                                                        msg+="<br/>\n"+fle.read(File.size(fln))+"\n"
+                                                    end
+                                                end
+                                            }
                                         end
                                         prm[3]=msg
                                     end  
@@ -939,7 +959,7 @@ else
             end
             day='1234560'
             day[now[0..0]]='['+now[0..0]+']'
-            res.body = "<html><body><table border=\"1\" width=\"640\"><tr><td width=\"140\"><a href=\"http://wdwave.dnsalias.com\">CaSchd.rb</a> ["+($drby ? "Red T." : "Green T.")+"]<br/>20090904</td><td>#{now[1..2]}:#{now[3..4]} #{day} - #{prm['page']}</br>"+sch.getPage('%')+"</td></tr></table>"
+            res.body = "<html><body><table border=\"1\" width=\"640\"><tr><td width=\"140\"><a href=\"http://wdwave.dnsalias.com\">CaSchd.rb</a> ["+($drby ? "Red T." : "Green T.")+"]<br/>20090910</td><td>#{now[1..2]}:#{now[3..4]} #{day} - #{prm['page']}</br>"+sch.getPage('%')+"</td></tr></table>"
             res.body+="<table border=\"0\" width=\"640\"><tr><td valign=\"top\" width=\"140\">"
             res.body+=sch.getPage('*')+"</td><td  valign=\"top\">"
             if prm['page']=='*'
