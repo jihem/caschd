@@ -3,8 +3,8 @@ Heartbeat, ... Send mails to a users list (with specific time periods,
 events, ...)
 
 Web sites :
-- http://wdwave.dnsalias.com/caschd (french)
-- http://github.com/jihem/caschd (english)
+- http://wdwave.dnsalias.com/caschd
+- http://github.com/jihem/caschd
 
 WARNING :
 You can remove the '#' before the 'dbry' key in caschd.conf to use the red threads model.
