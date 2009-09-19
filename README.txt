@@ -13,3 +13,8 @@ The red threads model provides real time performance without having to worry abo
 
 Red threads mode increase CPU load (up to 41 simultaneous process).
 It's recommanded to use green threads mode on slow or no dedicated computer.
+
+Red threads mode use Kernel.fork to start the subprocesses.
+Unfortunately Windows doesn’t support the fork command.
+Windows users can only use green threads mode or must install cygwin (http://www.cygwin.com).
+Which is really useful to (poor) users who are restricted to Windows.

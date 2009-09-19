@@ -28,7 +28,7 @@ class CaJson
         when /^[\{|\[]/
             @data=read(dta)
         else
-            @data=readFile(dta)
+            @data=read_file(dta)
         end
 
     end
@@ -65,7 +65,7 @@ class CaJson
             pos=0       # current position
             sep=0       # separator position 
             lvl=0       # level 
-            exp.each_byte { |car|       
+            exp.each_byte do |car|       
                 if qte
                    qte=(car!=34) 
                 else    
@@ -96,7 +96,7 @@ class CaJson
                 end
                 
                 pos+=1
-            }
+            end
             if hsh then
                 sbk=exp[deb..sep-1].strip
                 sbv=exp[sep+1..exp.length-1].strip            
@@ -113,7 +113,7 @@ class CaJson
         @data=_read(dta)
     end
     
-    def readFile(nme)
+    def read_file(nme)
         dta=""
         fle=File.new(nme,'r')
         while (lne=fle.gets)

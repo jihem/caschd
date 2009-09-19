@@ -22,19 +22,18 @@ class CaJson
     attr_reader :data
     attr_reader :resp
     
-    def initialize(dta=nil)
+    def initialize(dta='')
         case dta
-        when nil
+        when ''
             @data=nil
         when /^[\{|\[]/
             @resp,@data=read(dta)
         else
-            @resp,@data=readFile(dta)
+            @resp,@data=read_file(dta)
         end
-
     end
     
-    def getBool(str)
+    def get_bool(str)
         exp=str.lstrip
         res=exp.match(/^(true|false)/)
         if res
@@ -44,7 +43,7 @@ class CaJson
         return [exp,res]
     end
     
-    def getInteger(str)
+    def get_integer(str)
         exp=str.lstrip
         res=exp.match(/^[-+]?[0-9]+/)
         if res
@@ -54,7 +53,7 @@ class CaJson
         return [exp,res]    
     end
     
-    def getString(str)
+    def get_string(str)
         exp=str.lstrip
         res=exp.match(/^"([^"]||"")*"/)
         if res
@@ -65,18 +64,18 @@ class CaJson
         return [exp,res]        
     end
     
-    def getValue(str)
-        exp,res=getBool(str)
+    def get_value(str)
+        exp,res=get_bool(str)
         if res==nil
-            exp,res=getInteger(str)
+            exp,res=get_integer(str)
             if res==nil
-                exp,res=getString(str)
+                exp,res=get_string(str)
             end
         end
         return [exp,res]
     end
     
-    def getArray(str)
+    def get_array(str)
         exp=str.lstrip
         res=nil
         if exp.match(/^\[/)
@@ -85,15 +84,15 @@ class CaJson
             exp.lstrip!
             itm=true
             while (itm)
-                if ! exp.match(/^\]/)
-                    exp,itm=getValueOrArrayOrHash(exp)
+                if ! exp.to_s.match(/^\]/)
+                    exp,itm=get_value_or_array_or_hash(exp)
                     if itm != nil
                         res << itm
                         exp.lstrip!
                         if exp.match(/^,/)
                             exp=exp[1..exp.length-1]
-                            tmp,itm=getValueOrArrayOrHash(exp) 
-                            
+                            tmp,itm=get_value_or_array_or_hash(exp)
+
                             if itm == nil
                                 res=nil
                             end
@@ -107,7 +106,7 @@ class CaJson
                         res=nil
                     end
                 else
-                    exp=exp[1..exp.length-1]
+                    exp=exp[1..exp.to_s.length-1]
                     itm=nil
                 end
             end
@@ -115,14 +114,14 @@ class CaJson
         return [exp,res]
     end
     
-    def getPair(str)
-        exp,res=getString(str)
+    def get_pair(str)
+        exp,res=get_string(str)
         if res
             key=res
             exp.lstrip!
             if exp.match(/^:/)
                 exp=exp[1..exp.length-1]
-                exp,res=getValueOrArrayOrHash(exp)
+                exp,res=get_value_or_array_or_hash(exp)
                 if res!=nil
                     res=[key,res]
                 end
@@ -133,7 +132,7 @@ class CaJson
         return [exp,res]
     end
     
-    def getHash(str)
+    def get_hash(str)
         exp=str.lstrip
         res=nil
         if exp.match(/^\{/)
@@ -143,13 +142,13 @@ class CaJson
             itm=true
             while (itm)
                 if ! exp.match(/^\}/)
-                    exp,itm=getPair(exp)
+                    exp,itm=get_pair(exp)
                     if itm
                         res[itm[0]]=itm[1]
                         exp.lstrip!
                         if exp.match(/^,/)
                             exp=exp[1..exp.length-1]
-                            tmp,itm=getPair(exp) 
+                            tmp,itm=get_pair(exp)
                             if ! itm
                                 res=nil
                             end
@@ -171,12 +170,12 @@ class CaJson
         return [exp,res]
     end
     
-    def getValueOrArrayOrHash(str)
-        exp,res=getValue(str)
+    def get_value_or_array_or_hash(str)
+        exp,res=get_value(str)
         if res==nil
-            exp,res=getArray(str)
+            exp,res=get_array(str)
             if res==nil
-                exp,res=getHash(str)
+                exp,res=get_hash(str)
             end
         end
         return [exp,res]
@@ -185,11 +184,11 @@ class CaJson
     def read(dta)
         dta.gsub!(/(\n|\t|\r)/," ")
         dta.rstrip!
-        exp,res=getValueOrArrayOrHash(dta)
+        exp,res=get_value_or_array_or_hash(dta)
         return [exp,res]
     end
     
-    def readFile(nme)
+    def read_file(nme)
         dta=""
         fle=File.new(nme,'r')
         while (lne=fle.gets)

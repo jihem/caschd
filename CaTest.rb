@@ -107,7 +107,7 @@ class CaTest
         
         cnx=Net::POP3.new(sr2)
         cnx.start(lgn,pss)       
-        cnx.mails.each { |dta|
+        cnx.mails.each do |dta|
             blk=dta.pop
             idx=blk.index("\n")
             while (idx)
@@ -123,7 +123,7 @@ class CaTest
                 blk=blk[idx+1..blk.length-1]
                 idx=blk.index("\012")        
             end        
-        }
+        end
         cnx.finish
         res=smtp(prm) && res
         return res
