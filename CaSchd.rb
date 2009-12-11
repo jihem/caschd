@@ -346,6 +346,8 @@ class CaSchd
                                 fbf='"date";"time"'
                                 ev.test['exec'].each { | ex | fbf+=';"'+ex['name']+'_'+ex['args'][1].to_s.gsub(/\W/,'_')+'"' }
                                 fcv.write(fbf+"\n")
+                                fcv.close
+                                fcv=open(ev.test['file'],'a')
                             end
                         rescue
                             #
@@ -937,7 +939,7 @@ else
             end
             day='1234560'
             day[now[0..0]]='['+now[0..0]+']'
-            res.body = "<html><body><table border=\"1\" width=\"640\"><tr><td width=\"140\"><a href=\"http://wdwave.dnsalias.com\">CaSchd.rb</a> ["+($drby ? "Red T." : "Green T.")+"]<br/>20090919</td><td>#{now[1..2]}:#{now[3..4]} #{day} - #{prm['page']}</br>"+sch.get_page('%')+"</td></tr></table>"
+            res.body = "<html><body><table border=\"1\" width=\"640\"><tr><td width=\"140\"><a href=\"http://wdwave.dnsalias.com\">CaSchd.rb</a> ["+($drby ? "Red T." : "Green T.")+"]<br/>20091211</td><td>#{now[1..2]}:#{now[3..4]} #{day} - #{prm['page']}</br>"+sch.get_page('%')+"</td></tr></table>"
             res.body+="<table border=\"0\" width=\"640\"><tr><td valign=\"top\" width=\"140\">"
             res.body+=sch.get_page('*')+"</td><td  valign=\"top\">"
             if prm['page']=='*'
