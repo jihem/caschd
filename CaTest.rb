@@ -17,10 +17,12 @@
 # along with CaSchd. If not, see <http://www.gnu.org/licenses/>.
 #
 
+require 'rubygems'
 require 'net/http'
 require 'net/smtp'
 require 'net/pop'
 require 'net/ftp'
+require 'net/ping/icmp'
 require 'resolv'
 require 'uri'
 require 'tempfile'
@@ -100,7 +102,12 @@ class CaTest
         cnx.finish
         return true
     end
-     
+
+    def icmp(prm)
+        dly,url=prm
+        return Net::Ping::ICMP.new(url).ping?
+    end
+
     def sppp(prm)
         dly,sr1,prt,msg,frm,dst,sr2,lgn,pss=prm
         res=false
