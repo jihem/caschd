@@ -80,7 +80,8 @@ class CaSchd
         @wrkr=[ false ]*40
         @json=dta 
         @test=CaTest.new
-        @list=Array.new
+        @list=[]
+        @link={}
         @pool={}
         @mutex=Mutex.new
         @hdte=get_date()
@@ -101,6 +102,9 @@ class CaSchd
                 ex['cmax']=0
                 if ex['name']=='htbt'
                     @htbt[ex['args'][1]]=[ex['args'][2], false]
+                end
+                if ex.has_key?('link')
+                  @link[ex['link']]=ex
                 end
             end
             ts['time'].each do | tm |
@@ -210,7 +214,17 @@ class CaSchd
             end
         end
     end
-    
+
+    def info(prm)
+      res=nil
+      if prm['name']=='link' && @link.has_key?(prm['args'][1])
+        res='@'+@test.info(@link[prm['args'][1]])
+      else
+        res=@test.info(prm)
+      end
+      return res
+    end
+
     def exec(prm)
         wid=-1
         while (wid==-1) 
@@ -245,7 +259,12 @@ class CaSchd
                                     res=@test.send(prm['name'],prm['args'])
                                 end
                             else
-                                res=prm['name']=='htbt'? get_htbt(prm['args'][1]) : false
+                                case prm['name']
+                                  when 'htbt'
+                                    res=get_htbt(prm['args'][1])
+                                  when 'link'
+                                    res=@link.has_key?(prm['args'][1])
+                                end
                             end
                         end
                     rescue
@@ -259,27 +278,35 @@ class CaSchd
                                 #
                             end
                         end
-                        prm['ccrt']=Time.new-deb
+                        if res && prm['name']=='link'
+                          prm['ccrt']=@link[prm['args'][1]]['ccrt']
+                        else
+                          prm['ccrt']=Time.new-deb
+                        end
                         if prm['ccrt']>prm['cmax']
-                            prm['cmax']=prm['ccrt']
+                          prm['cmax']=prm['ccrt']
                         end               
                         if (res || (prm['cdwn']==-1))
-                            cnt=0
+                          cnt=0
                         else
-                            sleep(5)
-                            cnt-=1
+                          sleep(5)
+                          cnt-=1
                         end
                     end
                 end
             ensure
                 if res
-                    if prm['cdwn']!=prm['redo']
-                        add_logh('OK : '+@test.info(prm))
+                    if prm['name']=='link'
+                      prm['cdwn']=@link[prm['args'][1]]['cdwn']
+                    else
+                      if prm['cdwn']!=prm['redo']
+                        add_logh('OK : '+self.info(prm))
                         prm['cdwn']=prm['redo'] 
+                      end
                     end
                 else
                     if prm['cdwn']==0
-                        add_logh('KO : '+@test.info(prm))
+                        add_logh('KO : '+self.info(prm))
                     end
                     if prm['cdwn']>-1
                         prm['cdwn']-=1
@@ -458,7 +485,7 @@ class CaSchd
                         clr='green'
                     end
                     if (srv && ! pgi[ev.test['name']]) || (! srv && ! pgo[ev.test['name']])
-                        pgx+='<tr><td bgcolor="'+clr+'" width="20"></td><td>'+@test.info(ex)+' ('+("%01.1f" %ex['ccrt'])+'<'+("%01.1f" %ex['cmax'])+")</td></tr>\n"
+                        pgx+='<tr><td bgcolor="'+clr+'" width="20"></td><td>'+self.info(ex)+' ('+("%01.1f" %ex['ccrt'])+'<'+("%01.1f" %ex['cmax'])+")</td></tr>\n"
                     end
                 end
                 if srv
@@ -753,7 +780,7 @@ if (! $err)
                                 end
                             end
                             if (! $err) && (ex['atom']==nil)
-                                ex['atom']=true
+                                ex['atom']=ex['name']!='link'
                             end
                         end
                     else
@@ -939,7 +966,7 @@ else
             end
             day='1234560'
             day[now[0..0]]='['+now[0..0]+']'
-            res.body = "<html><body><table border=\"1\" width=\"640\"><tr><td width=\"140\"><a href=\"http://wdwave.dnsalias.com\">CaSchd.rb</a> ["+($drby ? "Red T." : "Green T.")+"]<br/>20100124</td><td>#{now[1..2]}:#{now[3..4]} #{day} - #{prm['page']}</br>"+sch.get_page('%')+"</td></tr></table>"
+            res.body = "<html><body><table border=\"1\" width=\"640\"><tr><td width=\"140\"><a href=\"http://wdwave.dnsalias.com\">CaSchd.rb</a> ["+($drby ? "Red T." : "Green T.")+"]<br/>20100213</td><td>#{now[1..2]}:#{now[3..4]} #{day} - #{prm['page']}</br>"+sch.get_page('%')+"</td></tr></table>"
             res.body+="<table border=\"0\" width=\"640\"><tr><td valign=\"top\" width=\"140\">"
             res.body+=sch.get_page('*')+"</td><td  valign=\"top\">"
             if prm['page']=='*'

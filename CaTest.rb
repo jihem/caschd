@@ -45,7 +45,7 @@ class CaTest
                 res+=prm['args'][0..2].join(', ')+', '+prm['args'][6]
             when 'htbt','pop3'
                 res+=prm['args'][0..1].join(', ')
-            else # ping http 
+            else # ping http ...
                 res+=prm['args'].join(', ')
             end
         end
