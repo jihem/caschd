@@ -20,97 +20,172 @@
 class CaJson
     
     attr_reader :data
+    attr_reader :resp
     
-    def initialize(dta=nil)
+    def initialize(dta='')
         case dta
-        when nil
+        when ''
             @data=nil
         when /^[\{|\[]/
-            @data=read(dta)
+            @resp,@data=read(dta)
         else
-            @data=read_file(dta)
+            @resp,@data=read_file(dta)
         end
-
     end
     
-    def _read(dta)
-        res=nil
-        exp=nil
-        hsh=nil
-        
-        if ! "\"{[".index(dta[0..0]) then
-            if dta=='true' then
-                res=true
-            elsif dta=='false' then
-                res=false
-            else
-                res=dta.to_i
-            end
-        elsif dta[0..0] == '"' 
-            res=dta[1..dta.length-2]
-        else
-            
-            if dta[0..0] == '{' then
-                res={}
-                hsh=true
-                exp=dta[1..dta.rindex('}')-1].strip
-            else
-                res=[]
-                hsh=false
-                exp=dta[1..dta.rindex(']')-1].strip
-            end
-            
-            qte=false   # "..."
-            deb=0       # begin position
-            pos=0       # current position
-            sep=0       # separator position 
-            lvl=0       # level 
-            exp.each_byte do |car|       
-                if qte
-                   qte=(car!=34) 
-                else    
-                    case car
-                    when 34 # "
-                        qte=true
-                    when 44 # ,
-                        if lvl==0 then
-                            if hsh then
-                                sbk=exp[deb..sep-1].strip
-                                sbv=exp[sep+1..pos-1].strip
-                                res[sbk[1..sbk.length-2]]=_read(sbv)
-                            else
-                                sbv=exp[deb..pos-1].strip
-                                res << _read(sbv)
-                            end
-                            deb=pos+1
-                        end
-                    when 58 # :
-                        if lvl==0
-                            sep=pos
-                        end
-                    when 123,91 # { [
-                        lvl+=1
-                    when 93,125 # ] }
-                        lvl-=1
-                    end
-                end
-                
-                pos+=1
-            end
-            if hsh then
-                sbk=exp[deb..sep-1].strip
-                sbv=exp[sep+1..exp.length-1].strip            
-                res[sbk[1..sbk.length-2]]=_read(sbv)
-            else
-                sbv=exp[deb..exp.length-1].strip            
-                res << _read(sbv)
+    def get_bool(str)
+        exp=str.lstrip
+        res=exp.match(/^(true|false)/)
+        if res
+            exp=exp[res[0].length..exp.length-1]
+            res=res[0]=="true"
+        end
+        return [exp,res]
+    end
+    
+    def get_integer(str)
+        exp=str.lstrip
+        res=exp.match(/^[-+]?[0-9]+/)
+        if res
+            exp=exp[res[0].length..exp.length-1]
+            res=res[0].to_i
+        end
+        return [exp,res]    
+    end
+    
+    def get_string(str)
+        exp=str.lstrip
+        res=exp.match(/^"([^"]||"")*"/)
+        if res
+            exp=exp[res[0].length..exp.length-1]
+            res=res[0][1..res[0].length-2]
+            res.gsub!('""','"')
+        end
+        return [exp,res]        
+    end
+    
+    def get_value(str)
+        exp,res=get_bool(str)
+        if res==nil
+            exp,res=get_integer(str)
+            if res==nil
+                exp,res=get_string(str)
             end
         end
-        return res
+        return [exp,res]
+    end
+    
+    def get_array(str)
+        exp=str.lstrip
+        res=nil
+        if exp.match(/^\[/)
+            res=[]
+            exp=exp[1..exp.length-1]
+            exp.lstrip!
+            itm=true
+            while (itm)
+                if ! exp.to_s.match(/^\]/)
+                    exp,itm=get_value_or_array_or_hash(exp)
+                    if itm != nil
+                        res << itm
+                        exp.lstrip!
+                        if exp.match(/^,/)
+                            exp=exp[1..exp.length-1]
+                            tmp,itm=get_value_or_array_or_hash(exp)
+
+                            if itm == nil
+                                res=nil
+                            end
+                        else
+                            if ! exp.match(/^\]/)
+                                itm=nil
+                                res=nil
+                            end
+                        end
+                    else
+                        res=nil
+                    end
+                else
+                    exp=exp[1..exp.to_s.length-1]
+                    itm=nil
+                end
+            end
+        end
+        return [exp,res]
+    end
+    
+    def get_pair(str)
+        exp,res=get_string(str)
+        if res
+            key=res
+            exp.lstrip!
+            if exp.match(/^:/)
+                exp=exp[1..exp.length-1]
+                exp,res=get_value_or_array_or_hash(exp)
+                if res!=nil
+                    res=[key,res]
+                end
+            else
+                res=nil
+            end
+        end
+        return [exp,res]
+    end
+    
+    def get_hash(str)
+        exp=str.lstrip
+        res=nil
+        if exp.match(/^\{/)
+            res={}
+            exp=exp[1..exp.length-1]
+            exp.lstrip!
+            itm=true
+            while (itm)
+                if ! exp.match(/^\}/)
+                    exp,itm=get_pair(exp)
+                    if itm
+                        res[itm[0]]=itm[1]
+                        exp.lstrip!
+                        if exp.match(/^,/)
+                            exp=exp[1..exp.length-1]
+                            tmp,itm=get_pair(exp)
+                            if ! itm
+                                res=nil
+                            end
+                        else
+                            if ! exp.match(/^\}/)
+                                itm=nil
+                                res=nil
+                            end
+                        end
+                    else
+                        res=nil
+                    end
+                else
+                    exp=exp[1..exp.length-1]
+                    itm=nil
+                end
+            end
+        end
+        return [exp,res]
+    end
+    
+    def get_value_or_array_or_hash(str)
+        exp,res=get_value(str)
+        if res==nil
+            exp,res=get_array(str)
+            if res==nil
+                exp,res=get_hash(str)
+            end
+        end
+        return [exp,res]
     end
     
     def read(dta)
-        @data=_read(dta)
+        dta.gsub!(/(\n|\t|\r)/," ")
+        dta.rstrip!
+        exp,res=get_value_or_array_or_hash(dta)
+        return [exp,res]
     end
     
     def read_file(nme)
@@ -120,17 +195,15 @@ class CaJson
             dta+=lne
         end
         fle.close
-        read(dta)
+        return read(dta)
     end
-    
 end
 
-#dta=CaJson.new
-#dta.read('{ "name1": "val,{ue1", "name2" : "value2", "name3" : [1, 2, "value", { "n3.3.1" : "331", "n3.3.2": true  }Ê] }')
-#print dta.data
+##dta=CaJson.new('caschd.txt')
+#dta=CaJson.new('{ "int1" : 1, "str2" : "two"}')
+#if ! dta.data
+#    print "Error in caschd.txt near '#{dta.resp}'\n"
+#else
+#    print dta.data
+#end
 
-#dta=CaJson.new('{ "name1" : "value1" }');
-#print dta.data
-
-#dta=CaJson.new('dwdata.txt');
-#print dta.data

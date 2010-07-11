@@ -1,5 +1,5 @@
 #
-# Copyright 2009 Jean-Marc "jihem" QUERE
+# Copyright 2010 Jean-Marc "jihem" QUERE
 #
 # This file is part of CaSchd.
 #
@@ -18,192 +18,170 @@
 #
 
 class CaJson
-    
-    attr_reader :data
-    attr_reader :resp
-    
-    def initialize(dta='')
-        case dta
-        when ''
-            @data=nil
-        when /^[\{|\[]/
-            @resp,@data=read(dta)
-        else
-            @resp,@data=read_file(dta)
-        end
-    end
-    
-    def get_bool(str)
-        exp=str.lstrip
-        res=exp.match(/^(true|false)/)
-        if res
-            exp=exp[res[0].length..exp.length-1]
-            res=res[0]=="true"
-        end
-        return [exp,res]
-    end
-    
-    def get_integer(str)
-        exp=str.lstrip
-        res=exp.match(/^[-+]?[0-9]+/)
-        if res
-            exp=exp[res[0].length..exp.length-1]
-            res=res[0].to_i
-        end
-        return [exp,res]    
-    end
-    
-    def get_string(str)
-        exp=str.lstrip
-        res=exp.match(/^"([^"]||"")*"/)
-        if res
-            exp=exp[res[0].length..exp.length-1]
-            res=res[0][1..res[0].length-2]
-            res.gsub!('""','"')
-        end
-        return [exp,res]        
-    end
-    
-    def get_value(str)
-        exp,res=get_bool(str)
-        if res==nil
-            exp,res=get_integer(str)
-            if res==nil
-                exp,res=get_string(str)
-            end
-        end
-        return [exp,res]
-    end
-    
-    def get_array(str)
-        exp=str.lstrip
-        res=nil
-        if exp.match(/^\[/)
-            res=[]
-            exp=exp[1..exp.length-1]
-            exp.lstrip!
-            itm=true
-            while (itm)
-                if ! exp.to_s.match(/^\]/)
-                    exp,itm=get_value_or_array_or_hash(exp)
-                    if itm != nil
-                        res << itm
-                        exp.lstrip!
-                        if exp.match(/^,/)
-                            exp=exp[1..exp.length-1]
-                            tmp,itm=get_value_or_array_or_hash(exp)
+  attr_reader :data
+  attr_reader :resp
 
-                            if itm == nil
-                                res=nil
-                            end
-                        else
-                            if ! exp.match(/^\]/)
-                                itm=nil
-                                res=nil
-                            end
-                        end
-                    else
-                        res=nil
-                    end
-                else
-                    exp=exp[1..exp.to_s.length-1]
-                    itm=nil
-                end
-            end
-        end
-        return [exp,res]
+  def initialize(dta='')
+    if dta==nil || dta=='' 
+      @data=nil
+    else
+      if "[{".index(dta[0..0])
+        @resp=dta
+      else
+        @resp=read_file(dta)
+      end
+      @pscr=0
+      @psln=@resp.length
+      @data=read()
+      if @data==nil
+        @resp=@resp[@pscr..@resp.length-1]
+      else
+        @resp=''
+      end
     end
-    
-    def get_pair(str)
-        exp,res=get_string(str)
-        if res
-            key=res
-            exp.lstrip!
-            if exp.match(/^:/)
-                exp=exp[1..exp.length-1]
-                exp,res=get_value_or_array_or_hash(exp)
-                if res!=nil
-                    res=[key,res]
-                end
+  end
+
+  def read()
+    dta=nil
+    len=@psln
+    while @pscr<len
+      ccr=@resp[@pscr..@pscr]
+      if ! " \t\n\r".index(ccr)
+        if "tTfF".index(ccr)
+          # boolean
+          if @resp[@pscr..@pscr+4].downcase=="false" && (@resp[@pscr+5..@pscr+5]==nil || " \t\n\r,]}".index(@resp[@pscr+5..@pscr+5]))
+            dta=false
+            @pscr+=4
+          else
+            if @resp[@pscr..@pscr+3].downcase=="true" && (@resp[@pscr+4..@pscr+4]==nil || " \t\n\r,]}".index(@resp[@pscr+4..@pscr+4]))
+              dta=true
+              @pscr+=3
+            end
+          end
+          len=0
+        else
+          if "0123456789".index(ccr)
+            # integer
+            dta=0
+            while @pscr<len && "0123456789".index(@resp[@pscr..@pscr])
+              dta=dta*10+@resp[@pscr]-48
+              @pscr+=1
+            end
+            if @resp[@pscr..@pscr]==nil || " \t\n\r,]}".index(@resp[@pscr..@pscr])
+              @pscr-=1
             else
-                res=nil
+              dta=nil
             end
+            len=0
+          else
+             case ccr
+               when "\""
+                 # string
+                 psc=@pscr+1
+                 while psc<len
+                   @pscr=@resp.index("\"",@pscr+1)
+                   if @pscr
+                     if @resp[@pscr+1..@pscr+1]==nil || @resp[@pscr+1..@pscr+1]!="\""
+                       dta=@resp[psc..@pscr-1].gsub("\"\"","\"")
+                       len=0
+                     else
+                       @pscr+=1
+                     end                     
+                   else
+                     @pscr=psc-1
+                     len=0
+                   end
+                 end
+               when "["
+                 # array
+                 dta=[]
+                 @pscr+=1
+                 while @pscr<len
+                   while @pscr<len && " \t\n\r,".index(@resp[@pscr..@pscr])
+                     @pscr+=1
+                   end
+                   if @pscr<len
+                     if @resp[@pscr..@pscr]=="]"
+                       len=0
+                     else
+                       itm=read()
+                       if itm!=nil
+                         dta<<itm
+                       else
+                         dta=nil
+                         len=0
+                       end
+                     end
+                   else
+                     dta=nil
+                     len=0
+                   end
+                 end
+               when "{"
+                 # hash
+                 dta={}
+                 @pscr+=1
+                 while @pscr<len
+                   while @pscr<len && " \t\n\r,".index(@resp[@pscr..@pscr])
+                     @pscr+=1
+                   end
+                   if @pscr<len
+                     if @resp[@pscr..@pscr]=="}"
+                       len=0
+                     else
+                       itm=read()
+                       if itm!=nil && itm.class.to_s=="String"
+                         while @pscr<len && " \t\n\r".index(@resp[@pscr..@pscr])
+                           @pscr+=1
+                         end
+                         if @resp[@pscr..@pscr]==":"
+                           @pscr+=1
+                           val=read()
+                           if val!=nil
+                             dta[itm]=val
+                           else
+                             dta=nil
+                             len=0
+                           end
+                         else
+                           dta=nil
+                           len=0
+                         end
+                       else
+                         dta=nil
+                         len=0
+                       end
+                     end
+                   else
+                     dta=nil
+                     len=0
+                   end
+                 end
+               end       
+          end
         end
-        return [exp,res]
+      end
+      @pscr+=1
     end
-    
-    def get_hash(str)
-        exp=str.lstrip
-        res=nil
-        if exp.match(/^\{/)
-            res={}
-            exp=exp[1..exp.length-1]
-            exp.lstrip!
-            itm=true
-            while (itm)
-                if ! exp.match(/^\}/)
-                    exp,itm=get_pair(exp)
-                    if itm
-                        res[itm[0]]=itm[1]
-                        exp.lstrip!
-                        if exp.match(/^,/)
-                            exp=exp[1..exp.length-1]
-                            tmp,itm=get_pair(exp)
-                            if ! itm
-                                res=nil
-                            end
-                        else
-                            if ! exp.match(/^\}/)
-                                itm=nil
-                                res=nil
-                            end
-                        end
-                    else
-                        res=nil
-                    end
-                else
-                    exp=exp[1..exp.length-1]
-                    itm=nil
-                end
-            end
-        end
-        return [exp,res]
+    return dta
+  end
+
+  def read_file(nme)
+    dta=""
+    fle=File.new(nme,"r")
+    while (lne=fle.gets)
+      dta+=lne
     end
-    
-    def get_value_or_array_or_hash(str)
-        exp,res=get_value(str)
-        if res==nil
-            exp,res=get_array(str)
-            if res==nil
-                exp,res=get_hash(str)
-            end
-        end
-        return [exp,res]
-    end
-    
-    def read(dta)
-        dta.gsub!(/(\n|\t|\r)/," ")
-        dta.rstrip!
-        exp,res=get_value_or_array_or_hash(dta)
-        return [exp,res]
-    end
-    
-    def read_file(nme)
-        dta=""
-        fle=File.new(nme,'r')
-        while (lne=fle.gets)
-            dta+=lne
-        end
-        fle.close
-        return read(dta)
-    end
+    fle.close
+    return dta
+  end
+
 end
 
-##dta=CaJson.new('caschd.txt')
-#dta=CaJson.new('{ "int1" : 1, "str2" : "two"}')
-#if ! dta.data
-#    print "Error in caschd.txt near '#{dta.resp}'\n"
+##dta=CaJson.new('caschd.conf')
+#dta=CaJson.new("[ 23, true, { \"test\" \n: {\"inner\":15},\"demo\":28} ]")
+#if dta.data!=nil
+#  puts 'result : '+dta.data.to_s
 #else
-#    print dta.data
+#  puts 'error near : '+dta.resp
 #end
-
