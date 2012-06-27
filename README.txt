@@ -3,7 +3,7 @@ Heartbeat, ... Send mails to a users list (with specific time periods,
 events, ...)
 
 Web sites :
-- http://wdwave.dnsalias.com/caschd
+- http://quere.jmarc.free.fr/caschd
 - http://github.com/jihem/caschd
 
 WARNING :
