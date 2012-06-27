@@ -9,7 +9,6 @@ Web sites :
 WARNING :
 You can remove the '#' before the 'dbry' key in caschd.conf to use the red threads model.
 The red threads model provides real time performance without having to worry about system calls.
-(see http://ph7spot.com/articles/system_timer for more explanation about green threads limits)
 
 Red threads mode increase CPU load (up to 41 simultaneous process).
 It's recommanded to use green threads mode on slow or no dedicated computer.
