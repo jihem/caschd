@@ -1,4 +1,4 @@
-CaSchd.rb is a Network Monitoring Tool : TCP Ping, HTTP, DNS, Mail (send & receive),
+CaSchd.rb is a Network Monitoring Tool : TCP Ping, HTTP, HTTPS, DNS, Mail (send & receive),
 Heartbeat, ... Send mails to a users list (with specific time periods,
 events, ...)
 
