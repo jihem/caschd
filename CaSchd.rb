@@ -626,6 +626,8 @@ class CaSchd
                                         res=tst.ping(prm)
                                     when 'http'
                                         res=tst.http(prm)
+                                    when 'https'
+                                        res=tst.https(prm) 
                                     when 'smtp'
                                         res=tst.smtp(prm)
                                     when 'puts'
