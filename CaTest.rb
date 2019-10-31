@@ -19,6 +19,8 @@
 
 require 'rubygems'
 require 'net/http'
+require 'net/https'
+require 'openssl'
 require 'net/smtp'
 require 'net/pop'
 require 'net/ftp'
@@ -64,6 +66,23 @@ class CaTest
         end
         return res
     end
+
+    def https(prm)
+        dly,url=prm
+        res=true
+        uri= URI.parse("https://#{url}")
+        net= Net::HTTP.new(uri.host,uri.port)
+        net.use_ssl=true
+        req= Net::HTTP::Get.new(uri.request_uri)
+        rep= net.request(req)
+        case rep
+            when Net::HTTPSuccess
+                # OK
+            else
+                res=false
+        end
+        return res
+    end    
     
     def ping(prm)
         dly,url,prt=prm
